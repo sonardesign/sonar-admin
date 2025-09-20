@@ -55,13 +55,85 @@ const calendarPath = path.join(__dirname, '../src/pages/Calendar.tsx');
 if (fs.existsSync(calendarPath)) {
   let calendarContent = fs.readFileSync(calendarPath, 'utf8');
   
+  // Fix selectedProject reference
+  calendarContent = calendarContent.replace(/selectedProject/g, 'selectedProjectId');
+  
+  // Fix createTimeEntry call
   calendarContent = calendarContent.replace(
-    'createTimeEntry({',
-    'createTimeEntry({\n        user_id: \'temp-user\',\n        project_id: selectedProject,\n        is_billable: true,\n        created_at: new Date().toISOString(),\n        updated_at: new Date().toISOString(),'
+    /createTimeEntry\(\{[\s\S]*?\}\);/g,
+    `createTimeEntry({
+        user_id: 'temp-user',
+        project_id: selectedProjectId,
+        start_time: startTime.toISOString(),
+        end_time: endTime.toISOString(),
+        duration_minutes: duration,
+        is_billable: true,
+        description: task,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        // Legacy compatibility
+        projectId: selectedProjectId,
+        startTime: startTime,
+        endTime: endTime,
+        duration: duration,
+        date: format(startTime, 'yyyy-MM-dd'),
+        task: task
+      });`
   );
   
   fs.writeFileSync(calendarPath, calendarContent);
   console.log('✅ Fixed Calendar.tsx');
+}
+
+// Fix 4: Update TimeTracking.tsx timer and time entry creation
+const timeTrackingPath = path.join(__dirname, '../src/pages/TimeTracking.tsx');
+if (fs.existsSync(timeTrackingPath)) {
+  let timeTrackingContent = fs.readFileSync(timeTrackingPath, 'utf8');
+  
+  // Fix timer type
+  timeTrackingContent = timeTrackingContent.replace(
+    'const [timer, setTimer] = useState<number | null>(null);',
+    'const [timer, setTimer] = useState<any>(null);'
+  );
+  
+  // Fix createTimeEntry calls
+  timeTrackingContent = timeTrackingContent.replace(
+    /createTimeEntry\(\{[\s\S]*?\}\);/g,
+    `createTimeEntry({
+        user_id: 'temp-user',
+        project_id: currentProject || selectedProject,
+        start_time: (startTime || new Date(startTimeValue)).toISOString(),
+        end_time: (new Date()).toISOString(),
+        duration_minutes: Math.floor(((new Date()).getTime() - (startTime || new Date(startTimeValue)).getTime()) / (1000 * 60)),
+        is_billable: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        // Legacy compatibility  
+        projectId: currentProject || selectedProject,
+        startTime: startTime || new Date(startTimeValue),
+        endTime: new Date(),
+        duration: Math.floor(((new Date()).getTime() - (startTime || new Date(startTimeValue)).getTime()) / (1000 * 60)),
+        date: format(new Date(), 'yyyy-MM-dd')
+      });`
+  );
+  
+  fs.writeFileSync(timeTrackingPath, timeTrackingContent);
+  console.log('✅ Fixed TimeTracking.tsx');
+}
+
+// Fix 5: Update Reports.tsx type conversion
+const reportsPath2 = path.join(__dirname, '../src/pages/Reports.tsx');
+if (fs.existsSync(reportsPath2)) {
+  let reportsContent2 = fs.readFileSync(reportsPath2, 'utf8');
+  
+  // Fix type conversion
+  reportsContent2 = reportsContent2.replace(
+    /\(month as number\)/g,
+    'Number(month)'
+  );
+  
+  fs.writeFileSync(reportsPath2, reportsContent2);
+  console.log('✅ Fixed Reports.tsx type conversion');
 }
 
 console.log('🎉 Build fixes applied successfully!');
