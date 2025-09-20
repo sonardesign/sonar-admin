@@ -1,0 +1,60 @@
+@use "variables" as *;
+
+:root {
+  font-family: $font-family;
+  line-height: 1.5;
+  font-weight: $font-weight-normal;
+
+  color-scheme: dark;
+  color: $text-color;
+  background-color: $background-color;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: $spacing-lg;
+  text-align: center;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+  margin-bottom: $spacing-md;
+}
+
+h2 {
+  font-size: 2em;
+  line-height: 1.2;
+  margin-bottom: $spacing-sm;
+}
+
+p {
+  margin-bottom: $spacing-sm;
+}
+
+code {
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+}

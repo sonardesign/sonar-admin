@@ -1,0 +1,55 @@
+@use "variables" as *;
+
+.app {
+  width: 100%;
+}
+
+.app-header {
+  margin-bottom: $spacing-xl;
+  
+  h1 {
+    color: $primary-color;
+    margin-bottom: $spacing-sm;
+  }
+  
+  p {
+    color: $text-muted;
+    font-size: 1.1em;
+  }
+}
+
+.app-main {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+}
+
+.card {
+  padding: $spacing-xl;
+  background-color: $card-background;
+  border: 1px solid $border-color;
+  border-radius: $border-radius-lg;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  max-width: 500px;
+  transition: transform $transition-normal, box-shadow $transition-normal;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+  }
+  
+  h2 {
+    color: $primary-color;
+    margin-bottom: $spacing-md;
+  }
+  
+  p {
+    line-height: 1.6;
+    margin-bottom: $spacing-sm;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+}
