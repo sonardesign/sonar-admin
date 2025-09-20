@@ -136,8 +136,7 @@ export const useSupabaseAppState = () => {
   const createProject = useCallback(async (
     name: string, 
     color: ProjectColor, 
-    clientId: string = '', 
-    clientName: string = ''
+    clientId: string = ''
   ): Promise<Project | null> => {
     try {
       if (!clientId) {

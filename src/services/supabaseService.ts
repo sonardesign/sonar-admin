@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import { Client, Project, TimeEntry, ProjectMember, Task, Invoice, Report } from '../types'
+import { Client, Project, TimeEntry } from '../types'
 
 // =====================================================
 // CLIENT SERVICES

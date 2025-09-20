@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -98,7 +98,7 @@ export const Projects: React.FC = () => {
   const startEditing = (project: Project) => {
     setEditingProject(project);
     setNewProjectName(project.name);
-    setSelectedClientId(project.clientId);
+    setSelectedClientId(project.client_id || project.clientId || '');
     setSelectedColor(project.color as ProjectColor);
   };
 

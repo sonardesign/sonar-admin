@@ -293,7 +293,7 @@ export type Database = {
     Functions: {
       get_project_stats: {
         Args: { project_uuid: string }
-        Returns: Json
+        Returns: any
       }
       get_user_time_summary: {
         Args: { 
@@ -301,7 +301,7 @@ export type Database = {
           start_date?: string
           end_date?: string 
         }
-        Returns: Json
+        Returns: any
       }
       generate_time_report: {
         Args: {
@@ -312,11 +312,11 @@ export type Database = {
           user_ids?: string[]
           client_ids?: string[]
         }
-        Returns: Json
+        Returns: any
       }
       get_dashboard_stats: {
         Args: { user_uuid: string }
-        Returns: Json
+        Returns: any
       }
     }
   }
