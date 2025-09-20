@@ -7,7 +7,8 @@ import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { Plus, Edit2, Archive, Trash2, Palette, Users } from 'lucide-react';
-import { useSupabaseAppState } from '../hooks/useSupabaseAppState';
+import { cn } from '../lib/utils';
+import { useProjectsData } from '../hooks/useProjectsData';
 import { Project, ProjectColor, Client } from '../types';
 import { Page } from '../components/Page';
 
@@ -34,7 +35,7 @@ export const Projects: React.FC = () => {
     deleteProject,
     loading,
     error 
-  } = useSupabaseAppState();
+  } = useProjectsData();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isClientCreateOpen, setIsClientCreateOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);

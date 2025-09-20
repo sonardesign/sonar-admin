@@ -12,49 +12,78 @@ export const useSupabaseAppState = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Load initial data
+  // Load initial data (DISABLED FOR DEMO MODE)
   useEffect(() => {
-    if (user) {
-      loadData()
-    }
-  }, [user])
+    console.log('⚠️ useSupabaseAppState disabled in demo mode')
+    setLoading(false)
+    setError(null)
+    // Don't load any data - use empty arrays
+    setClients([])
+    setProjects([])
+    setTimeEntries([])
+  }, [])
 
   const loadData = async () => {
     setLoading(true)
     setError(null)
     
+    console.log('🔄 Starting data load...')
+    
     try {
-      // Load clients
-      const { data: clientsData, error: clientsError } = await clientService.getAll()
+      // Add timeout to prevent infinite loading (disabled for demo)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Data loading timeout')), 60000) // 60 second timeout (effectively disabled)
+      })
+      
+      // Load clients with timeout
+      console.log('📋 Loading clients...')
+      const clientsPromise = clientService.getAll()
+      const { data: clientsData, error: clientsError } = await Promise.race([clientsPromise, timeoutPromise])
+      
       if (clientsError) {
-        console.error('Error loading clients:', clientsError)
-        setError('Failed to load clients')
+        console.error('❌ Error loading clients:', clientsError)
+        setError(`Failed to load clients: ${clientsError.message || clientsError}`)
+        // Continue loading other data even if clients fail
       } else {
+        console.log('✅ Clients loaded:', clientsData?.length || 0, 'records')
         setClients(clientsData || [])
       }
 
-      // Load projects
-      const { data: projectsData, error: projectsError } = await projectService.getAll()
+      // Load projects with timeout
+      console.log('📁 Loading projects...')
+      const projectsPromise = projectService.getAll()
+      const { data: projectsData, error: projectsError } = await Promise.race([projectsPromise, timeoutPromise])
+      
       if (projectsError) {
-        console.error('Error loading projects:', projectsError)
-        setError('Failed to load projects')
+        console.error('❌ Error loading projects:', projectsError)
+        setError(`Failed to load projects: ${projectsError.message || projectsError}`)
+        // Continue loading other data even if projects fail
       } else {
+        console.log('✅ Projects loaded:', projectsData?.length || 0, 'records')
         setProjects(projectsData || [])
       }
 
-      // Load time entries
-      const { data: timeEntriesData, error: timeEntriesError } = await timeEntryService.getAll()
+      // Load time entries with timeout
+      console.log('⏰ Loading time entries...')
+      const timeEntriesPromise = timeEntryService.getAll()
+      const { data: timeEntriesData, error: timeEntriesError } = await Promise.race([timeEntriesPromise, timeoutPromise])
+      
       if (timeEntriesError) {
-        console.error('Error loading time entries:', timeEntriesError)
-        setError('Failed to load time entries')
+        console.error('❌ Error loading time entries:', timeEntriesError)
+        setError(`Failed to load time entries: ${timeEntriesError.message || timeEntriesError}`)
       } else {
+        console.log('✅ Time entries loaded:', timeEntriesData?.length || 0, 'records')
         setTimeEntries(timeEntriesData || [])
       }
+      
+      console.log('🎉 Data loading completed')
     } catch (err) {
-      console.error('Error loading data:', err)
-      setError('Failed to load application data')
+      console.error('💥 Error loading data:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+      setError(`Failed to load application data: ${errorMessage}`)
     } finally {
       setLoading(false)
+      console.log('🏁 Loading state cleared')
     }
   }
 

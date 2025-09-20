@@ -16,7 +16,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-const useAuth = () => {
+export const useAuth = () => {
   const context = useContext(AuthContext)
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider')
@@ -89,56 +89,98 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Initialize auth state
   useEffect(() => {
-    // Enable Supabase authentication
-    const skipAuth = false
-    
-    if (skipAuth) {
-      // Set loading to false immediately to show the auth page
-      setLoading(false)
-      return
+    let mounted = true
+
+    const initializeAuth = async () => {
+      console.log('🔐 Initializing auth...')
+      try {
+        // Check for existing session first
+        console.log('🔍 Getting session...')
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (!mounted) {
+          console.log('⚠️ Component unmounted, skipping auth init')
+          return
+        }
+
+        if (error) {
+          console.error('❌ Error getting session:', error)
+          setLoading(false)
+          return
+        }
+
+        console.log('📋 Session result:', session ? `✅ Active (${session.user.email})` : '❌ None')
+
+        // Set initial session state
+        setSession(session)
+        setUser(session?.user ?? null)
+        
+        // Load profile if user exists
+        if (session?.user) {
+          console.log('👤 Loading user profile...')
+          const userProfile = await fetchProfile(session.user.id)
+          if (mounted) {
+            console.log('✅ Profile loaded:', userProfile?.full_name || 'No name')
+            setProfile(userProfile)
+          }
+        } else {
+          console.log('👤 No user session, skipping profile load')
+        }
+        
+        if (mounted) {
+          console.log('🏁 Auth initialization complete, clearing loading state')
+          setLoading(false)
+        }
+      } catch (error) {
+        console.error('💥 Error initializing auth:', error)
+        if (mounted) {
+          setLoading(false)
+        }
+      }
     }
 
-    // Get initial session with timeout
-    const sessionTimeout = setTimeout(() => {
-      console.warn('Supabase session check timed out, proceeding without auth')
-      setLoading(false)
-    }, 5000) // 5 second timeout
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      clearTimeout(sessionTimeout)
-      setSession(session)
-      setUser(session?.user ?? null)
-      
-      if (session?.user) {
-        fetchProfile(session.user.id).then(setProfile)
+    // Initialize auth with timeout (disabled in demo mode)
+    const timeoutId = setTimeout(() => {
+      if (mounted) {
+        // console.warn('⏰ Auth initialization timeout, clearing loading state') // Disabled for demo
+        setLoading(false)
       }
-      
-      setLoading(false)
-    }).catch((error) => {
-      clearTimeout(sessionTimeout)
-      console.error('Error getting session:', error)
-      setLoading(false)
+    }, 8000) // 8 second timeout
+
+    initializeAuth().finally(() => {
+      clearTimeout(timeoutId)
     })
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return
+
+      console.log('Auth state changed:', event, session?.user?.email)
+      
       setSession(session)
       setUser(session?.user ?? null)
       
       if (session?.user) {
         const userProfile = await fetchProfile(session.user.id)
-        setProfile(userProfile)
+        if (mounted) {
+          setProfile(userProfile)
+        }
       } else {
-        setProfile(null)
+        if (mounted) {
+          setProfile(null)
+        }
       }
       
-      setLoading(false)
+      if (mounted) {
+        setLoading(false)
+      }
     })
 
     return () => {
-      clearTimeout(sessionTimeout)
+      mounted = false
+      clearTimeout(timeoutId)
       subscription.unsubscribe()
     }
   }, [])
@@ -201,37 +243,53 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setLoading(true)
       
-      // Sign out from Supabase
-      const { error } = await supabase.auth.signOut()
-      
-      // Clear local state immediately regardless of Supabase response
+      // Clear local state first
       setUser(null)
       setProfile(null)
       setSession(null)
       
-      // Clear any additional local storage that might persist user data
-      try {
-        localStorage.removeItem('supabase.auth.token')
-        sessionStorage.removeItem('supabase.auth.token')
-      } catch (storageError) {
-        // Ignore storage errors (might not be available in some environments)
-        console.warn('Could not clear storage:', storageError)
-      }
+      // Sign out from Supabase (this will trigger auth state change)
+      const { error } = await supabase.auth.signOut()
       
+      // Clear all possible auth storage locations
+      const authKeys = [
+        'supabase.auth.token',
+        'sb-auth-token',
+        'supabase-auth-token',
+        'supabase.session'
+      ]
+      
+      authKeys.forEach(key => {
+        try {
+          // Clear localStorage
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.removeItem(key)
+          }
+          
+          // Clear sessionStorage
+          if (typeof window !== 'undefined' && window.sessionStorage) {
+            window.sessionStorage.removeItem(key)
+          }
+          
+          // Clear cookies
+          if (typeof document !== 'undefined') {
+            document.cookie = `${key}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`
+            document.cookie = `${key}=; path=/; domain=${window.location.hostname}; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`
+          }
+        } catch (storageError) {
+          console.warn(`Could not clear ${key}:`, storageError)
+        }
+      })
+      
+      console.log('User signed out successfully')
       return { error }
     } catch (error) {
+      console.error('Error during sign out:', error)
+      
       // Even if Supabase signOut fails, clear local state
       setUser(null)
       setProfile(null)
       setSession(null)
-      
-      // Still try to clear storage
-      try {
-        localStorage.removeItem('supabase.auth.token')
-        sessionStorage.removeItem('supabase.auth.token')
-      } catch (storageError) {
-        console.warn('Could not clear storage:', storageError)
-      }
       
       return { error: error as AuthError }
     } finally {
@@ -283,5 +341,4 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   )
 }
 
-// Export hook separately to avoid Fast Refresh issues
-export { useAuth }
+// useAuth is exported inline above - no duplicate export needed

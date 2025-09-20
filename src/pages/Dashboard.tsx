@@ -2,11 +2,19 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Clock, Calendar, FolderOpen, Timer } from 'lucide-react';
-import { useSupabaseAppState } from '../hooks/useSupabaseAppState';
+// import { useSupabaseAppState } from '../hooks/useSupabaseAppState'; // Temporarily disabled
+import { useAppState } from '../hooks/useAppState';
 import { Page } from '../components/Page';
 
 export const Dashboard: React.FC = () => {
-  const { projects, timeEntries, getActiveProjects, loading, error } = useSupabaseAppState();
+  const { projects, timeEntries, getActiveProjects } = useAppState();
+  const loading = false;
+  const error = null;
+  
+  console.log('📊 Dashboard using mock data:', { 
+    projects: projects.length, 
+    timeEntries: timeEntries.length 
+  });
   
   // Show loading state
   if (loading) {

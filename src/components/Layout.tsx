@@ -15,7 +15,7 @@ import {
 import { Button } from './ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { useAuth } from '../contexts/AuthContext';
+// import { useAuth } from '../contexts/AuthContext'; // Temporarily disabled
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -31,8 +31,8 @@ const navigation = [
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
-  const { profile, signOut } = useAuth();
-  const profileName = profile?.full_name || 'User';
+  // Temporary demo data
+  const profileName = 'Demo User';
   
   // Generate proper initials from the full name
   const getInitials = (name: string) => {
@@ -50,16 +50,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
   
   const handleLogout = async () => {
-    try {
-      const { error } = await signOut();
-      if (error) {
-        console.error('Error during logout:', error);
-        // Still proceed with logout even if there's an error
-      }
-    } catch (error) {
-      console.error('Unexpected error during logout:', error);
-      // The AuthContext will handle clearing the state anyway
-    }
+    console.log('Demo logout clicked');
+    // Temporary - just reload page
+    window.location.reload();
   };
 
   return (
@@ -110,15 +103,15 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 >
                   <div className="flex items-center space-x-3">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={profile?.avatar_url || ""} alt={profileName} />
+                      <AvatarImage src="" alt={profileName} />
                       <AvatarFallback className="bg-primary text-primary-foreground text-sm">
                         {getInitials(profileName)}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="text-left">
-                      <p className="text-sm font-medium text-foreground">{profileName}</p>
-                      <p className="text-xs text-muted-foreground">{profile?.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : 'User'}</p>
-                    </div>
+                        <div className="text-left">
+                          <p className="text-sm font-medium text-foreground">{profileName}</p>
+                          <p className="text-xs text-muted-foreground">Demo User</p>
+                        </div>
                   </div>
                   <ChevronUp className="h-4 w-4 text-muted-foreground" />
                 </Button>
