@@ -89,9 +89,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Initialize auth state
   useEffect(() => {
-    // Temporary: Skip Supabase auth for development
-    // This allows the app to load without requiring database setup
-    const skipAuth = true
+    // Enable Supabase authentication
+    const skipAuth = false
     
     if (skipAuth) {
       // Set loading to false immediately to show the auth page
@@ -99,8 +98,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return
     }
 
-    // Get initial session
+    // Get initial session with timeout
+    const sessionTimeout = setTimeout(() => {
+      console.warn('Supabase session check timed out, proceeding without auth')
+      setLoading(false)
+    }, 5000) // 5 second timeout
+
     supabase.auth.getSession().then(({ data: { session } }) => {
+      clearTimeout(sessionTimeout)
       setSession(session)
       setUser(session?.user ?? null)
       
@@ -108,6 +113,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         fetchProfile(session.user.id).then(setProfile)
       }
       
+      setLoading(false)
+    }).catch((error) => {
+      clearTimeout(sessionTimeout)
+      console.error('Error getting session:', error)
       setLoading(false)
     })
 
@@ -128,7 +137,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoading(false)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      clearTimeout(sessionTimeout)
+      subscription.unsubscribe()
+    }
   }, [])
 
   // Sign in function
@@ -182,9 +194,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signOut = async () => {
     try {
       setLoading(true)
+      
+      // Sign out from Supabase
       const { error } = await supabase.auth.signOut()
+      
+      // Clear local state immediately regardless of Supabase response
+      setUser(null)
+      setProfile(null)
+      setSession(null)
+      
       return { error }
     } catch (error) {
+      // Even if Supabase signOut fails, clear local state
+      setUser(null)
+      setProfile(null)
+      setSession(null)
       return { error: error as AuthError }
     } finally {
       setLoading(false)

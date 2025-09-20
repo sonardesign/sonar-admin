@@ -40,7 +40,16 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
   
   const handleLogout = async () => {
-    await signOut();
+    try {
+      const { error } = await signOut();
+      if (error) {
+        console.error('Error during logout:', error);
+        // Still proceed with logout even if there's an error
+      }
+    } catch (error) {
+      console.error('Unexpected error during logout:', error);
+      // The AuthContext will handle clearing the state anyway
+    }
   };
 
   return (
