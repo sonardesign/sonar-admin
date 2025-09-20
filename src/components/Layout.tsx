@@ -32,7 +32,17 @@ const navigation = [
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const { profile, signOut } = useAuth();
-  const profileName = profile?.full_name || 'Demo User';
+  const profileName = profile?.full_name || 'User';
+  
+  // Generate proper initials from the full name
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .filter(word => word.length > 0)
+      .map(word => word[0].toUpperCase())
+      .slice(0, 2) // Take only first 2 initials
+      .join('');
+  };
   
   const handleDarkModeToggle = () => {
     // TODO: Implement dark mode toggle
@@ -100,14 +110,14 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 >
                   <div className="flex items-center space-x-3">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src="" alt={profileName} />
+                      <AvatarImage src={profile?.avatar_url || ""} alt={profileName} />
                       <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                        {profileName.split(' ').map(n => n[0]).join('')}
+                        {getInitials(profileName)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="text-left">
                       <p className="text-sm font-medium text-foreground">{profileName}</p>
-                      <p className="text-xs text-muted-foreground">Administrator</p>
+                      <p className="text-xs text-muted-foreground">{profile?.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : 'User'}</p>
                     </div>
                   </div>
                   <ChevronUp className="h-4 w-4 text-muted-foreground" />

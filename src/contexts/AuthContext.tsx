@@ -166,6 +166,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            full_name: fullName,
+          }
+        }
       })
 
       if (error) {
@@ -175,6 +180,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Create profile if user was created successfully
       if (data.user && !data.session) {
         // User needs to confirm email - profile will be created on confirmation
+        // The full_name will be available in user metadata for the trigger
         return { error: null }
       }
 
@@ -203,12 +209,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setProfile(null)
       setSession(null)
       
+      // Clear any additional local storage that might persist user data
+      try {
+        localStorage.removeItem('supabase.auth.token')
+        sessionStorage.removeItem('supabase.auth.token')
+      } catch (storageError) {
+        // Ignore storage errors (might not be available in some environments)
+        console.warn('Could not clear storage:', storageError)
+      }
+      
       return { error }
     } catch (error) {
       // Even if Supabase signOut fails, clear local state
       setUser(null)
       setProfile(null)
       setSession(null)
+      
+      // Still try to clear storage
+      try {
+        localStorage.removeItem('supabase.auth.token')
+        sessionStorage.removeItem('supabase.auth.token')
+      } catch (storageError) {
+        console.warn('Could not clear storage:', storageError)
+      }
+      
       return { error: error as AuthError }
     } finally {
       setLoading(false)
