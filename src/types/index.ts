@@ -1,8 +1,17 @@
+export interface Client {
+  id: string;
+  name: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Project {
   id: string;
   name: string;
   color: string;
   archived: boolean;
+  clientId: string;
+  clientName: string;
   createdAt: Date;
   updatedAt: Date;
 }

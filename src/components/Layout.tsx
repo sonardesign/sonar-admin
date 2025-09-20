@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { 
@@ -7,8 +7,15 @@ import {
   Calendar, 
   FolderOpen,
   Timer,
-  BarChart3
+  BarChart3,
+  User,
+  Moon,
+  LogOut,
+  ChevronUp
 } from 'lucide-react';
+import { Button } from './ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -24,6 +31,17 @@ const navigation = [
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
+  const [profileName] = useState('John Doe'); // Mock user name
+  
+  const handleDarkModeToggle = () => {
+    // TODO: Implement dark mode toggle
+    console.log('Dark mode toggle clicked - not implemented yet');
+  };
+  
+  const handleLogout = () => {
+    // TODO: Implement logout functionality
+    console.log('Logout clicked - not implemented yet');
+  };
 
   return (
     <div className="flex h-screen bg-background">
@@ -63,11 +81,46 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             </ul>
           </nav>
 
-          {/* Footer */}
+          {/* Profile Section */}
           <div className="p-4 border-t border-border">
-            <p className="text-xs text-muted-foreground">
-              Time Tracking System v1.0
-            </p>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  className="w-full justify-between p-2 h-auto hover:bg-muted/50"
+                >
+                  <div className="flex items-center space-x-3">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src="" alt={profileName} />
+                      <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                        {profileName.split(' ').map(n => n[0]).join('')}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="text-left">
+                      <p className="text-sm font-medium text-foreground">{profileName}</p>
+                      <p className="text-xs text-muted-foreground">Administrator</p>
+                    </div>
+                  </div>
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent 
+                align="end" 
+                side="top" 
+                className="w-56 mb-2"
+                sideOffset={8}
+              >
+                <DropdownMenuItem onClick={handleDarkModeToggle}>
+                  <Moon className="h-4 w-4 mr-2" />
+                  Dark Mode
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
