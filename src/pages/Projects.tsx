@@ -7,7 +7,7 @@ import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { Plus, Edit2, Archive, Trash2, Palette, Users } from 'lucide-react';
-import { useAppState } from '../hooks/useAppState';
+import { useSupabaseAppState } from '../hooks/useSupabaseAppState';
 import { Project, ProjectColor, Client } from '../types';
 import { Page } from '../components/Page';
 
@@ -31,8 +31,10 @@ export const Projects: React.FC = () => {
     createProject, 
     updateProject, 
     archiveProject, 
-    deleteProject 
-  } = useAppState();
+    deleteProject,
+    loading,
+    error 
+  } = useSupabaseAppState();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isClientCreateOpen, setIsClientCreateOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -47,7 +49,7 @@ export const Projects: React.FC = () => {
     if (newProjectName.trim() && selectedClientId) {
       const client = clients.find(c => c.id === selectedClientId);
       if (client) {
-        createProject(newProjectName.trim(), selectedColor, selectedClientId, client.name);
+        createProject(newProjectName.trim(), selectedColor, selectedClientId);
         setNewProjectName('');
         setSelectedClientId('');
         setSelectedColor('#3b82f6');
@@ -103,18 +105,46 @@ export const Projects: React.FC = () => {
   };
 
   const filteredProjects = showArchived 
-    ? projects.filter(p => p.archived)
-    : projects.filter(p => !p.archived);
+    ? projects.filter(p => p.is_archived || p.archived)
+    : projects.filter(p => !(p.is_archived || p.archived));
 
   // Group projects by client
   const groupedProjects = filteredProjects.reduce((groups, project) => {
-    const clientName = project.clientName;
+    const clientName = project.client_name || project.clientName || 'Unassigned';
     if (!groups[clientName]) {
       groups[clientName] = [];
     }
     groups[clientName].push(project);
     return groups;
   }, {} as Record<string, Project[]>);
+
+  // Show loading state
+  if (loading) {
+    return (
+      <Page>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading projects...</p>
+          </div>
+        </div>
+      </Page>
+    )
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <Page>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="text-destructive mb-2">Error loading projects</p>
+            <p className="text-muted-foreground text-sm">{error}</p>
+          </div>
+        </div>
+      </Page>
+    )
+  }
 
   return (
     <Page>
@@ -292,15 +322,16 @@ export const Projects: React.FC = () => {
                           <div>
                             <h3 className="font-medium text-foreground">{project.name}</h3>
                             <p className="text-sm text-muted-foreground">
-                              Created {project.createdAt.toLocaleDateString('en-US', {
+                              Created {new Date(project.created_at || project.createdAt || Date.now()).toLocaleDateString('en-US', {
                                 year: 'numeric',
                                 month: 'short',
                                 day: 'numeric'
                               })}
-                              {project.updatedAt.getTime() !== project.createdAt.getTime() && (
+                              {(project.updated_at || project.updatedAt) && 
+                               new Date(project.updated_at || project.updatedAt!).getTime() !== new Date(project.created_at || project.createdAt || Date.now()).getTime() && (
                                 <span>
                                   {' • Updated '}
-                                  {project.updatedAt.toLocaleDateString('en-US', {
+                                  {new Date(project.updated_at || project.updatedAt!).toLocaleDateString('en-US', {
                                     year: 'numeric',
                                     month: 'short',
                                     day: 'numeric'

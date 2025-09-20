@@ -4,12 +4,12 @@ import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
 import { Play, Pause, Square, Clock, Trash2 } from 'lucide-react';
-import { useAppState } from '../hooks/useAppState';
+import { useSupabaseAppState } from '../hooks/useSupabaseAppState';
 import { Page } from '../components/Page';
 // import { TimeEntry } from '../types'; // Type is imported via useAppState
 
 export const TimeTracking: React.FC = () => {
-  const { getActiveProjects, timeEntries, createTimeEntry, deleteTimeEntry, getProjectById } = useAppState();
+  const { getActiveProjects, timeEntries, createTimeEntry, deleteTimeEntry, getProjectById, loading, error } = useSupabaseAppState();
   const [isTracking, setIsTracking] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [startTime, setStartTime] = useState<Date | null>(null);

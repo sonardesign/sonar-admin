@@ -7,7 +7,7 @@ import { Textarea } from '../components/ui/textarea';
 import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Sun, Grid3X3 } from 'lucide-react';
-import { useAppState } from '../hooks/useAppState';
+import { useSupabaseAppState } from '../hooks/useSupabaseAppState';
 import { cn } from '../lib/utils';
 import { Page } from '../components/Page';
 
@@ -22,7 +22,7 @@ interface SelectedSlot extends TimeSlot {
 }
 
 export const Calendar: React.FC = () => {
-  const { getActiveProjects, createTimeEntry } = useAppState();
+  const { getActiveProjects, createTimeEntry, loading, error } = useSupabaseAppState();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
   const [isSelecting, setIsSelecting] = useState(false);

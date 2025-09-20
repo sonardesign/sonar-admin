@@ -2,16 +2,44 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Clock, Calendar, FolderOpen, Timer } from 'lucide-react';
-import { useAppState } from '../hooks/useAppState';
+import { useSupabaseAppState } from '../hooks/useSupabaseAppState';
 import { Page } from '../components/Page';
 
 export const Dashboard: React.FC = () => {
-  const { projects, timeEntries, getActiveProjects } = useAppState();
+  const { projects, timeEntries, getActiveProjects, loading, error } = useSupabaseAppState();
+  
+  // Show loading state
+  if (loading) {
+    return (
+      <Page>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading dashboard...</p>
+          </div>
+        </div>
+      </Page>
+    )
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <Page>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="text-destructive mb-2">Error loading dashboard</p>
+            <p className="text-muted-foreground text-sm">{error}</p>
+          </div>
+        </div>
+      </Page>
+    )
+  }
   
   const activeProjects = getActiveProjects();
   const totalTimeToday = timeEntries
     .filter(entry => entry.date === new Date().toISOString().split('T')[0])
-    .reduce((total, entry) => total + entry.duration, 0);
+    .reduce((total, entry) => total + (entry.duration || entry.duration_minutes || 0), 0);
   
   const formatTime = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
@@ -38,7 +66,7 @@ export const Dashboard: React.FC = () => {
           <CardContent>
             <div className="text-2xl font-bold">{activeProjects.length}</div>
             <p className="text-xs text-muted-foreground">
-              {projects.filter(p => p.archived).length} archived
+              {projects.filter(p => p.is_archived || p.archived).length} archived
             </p>
           </CardContent>
         </Card>
@@ -63,7 +91,7 @@ export const Dashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatTime(timeEntries.reduce((total, entry) => total + entry.duration, 0))}
+              {formatTime(timeEntries.reduce((total, entry) => total + (entry.duration || entry.duration_minutes || 0), 0))}
             </div>
             <p className="text-xs text-muted-foreground">
               Total tracked time

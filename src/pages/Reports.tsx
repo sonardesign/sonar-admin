@@ -9,7 +9,7 @@ import { Calendar } from '../components/ui/calendar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui/dropdown-menu'
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '../components/ui/chart'
 import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts'
-import { useAppState } from '../hooks/useAppState'
+import { useSupabaseAppState } from '../hooks/useSupabaseAppState'
 import { cn } from '../lib/utils'
 import { Page } from '../components/Page'
 
@@ -59,7 +59,7 @@ const getDatePresets = (): DatePreset[] => {
 }
 
 export const Reports: React.FC = () => {
-  const { projects, timeEntries } = useAppState()
+  const { projects, timeEntries, loading, error } = useSupabaseAppState()
   const [selectedClient, setSelectedClient] = useState<string>('all')
   const [selectedProject, setSelectedProject] = useState<string>('all')
   const [selectedColleague, setSelectedColleague] = useState<string>('all')
