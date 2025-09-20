@@ -1,30 +1,151 @@
+// Database-aligned interfaces
+export interface Profile {
+  id: string;
+  email: string;
+  full_name: string;
+  avatar_url?: string;
+  role: 'admin' | 'manager' | 'user';
+  timezone: string;
+  date_format: string;
+  time_format: '12h' | '24h';
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Client {
   id: string;
   name: string;
-  createdAt: Date;
-  updatedAt: Date;
+  email?: string;
+  phone?: string;
+  address?: string;
+  website?: string;
+  contact_person?: string;
+  notes?: string;
+  is_active: boolean;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Project {
   id: string;
+  client_id: string;
   name: string;
+  description?: string;
   color: string;
-  archived: boolean;
-  clientId: string;
-  clientName: string;
-  createdAt: Date;
-  updatedAt: Date;
+  hourly_rate?: number;
+  budget?: number;
+  deadline?: string;
+  status: 'active' | 'on_hold' | 'completed' | 'cancelled';
+  is_archived: boolean;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+  // Computed fields (from joins)
+  client_name?: string;
+  clientId?: string; // Legacy compatibility
+  clientName?: string; // Legacy compatibility
+  archived?: boolean; // Legacy compatibility
+  createdAt?: Date; // Legacy compatibility
+  updatedAt?: Date; // Legacy compatibility
+}
+
+export interface ProjectMember {
+  id: string;
+  project_id: string;
+  user_id: string;
+  role: 'owner' | 'manager' | 'member' | 'viewer';
+  hourly_rate?: number;
+  can_edit_project: boolean;
+  can_view_reports: boolean;
+  added_by?: string;
+  added_at: string;
+}
+
+export interface Task {
+  id: string;
+  project_id: string;
+  name: string;
+  description?: string;
+  estimated_hours?: number;
+  status: 'todo' | 'in_progress' | 'review' | 'completed' | 'cancelled';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  assigned_to?: string;
+  due_date?: string;
+  completed_at?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface TimeEntry {
   id: string;
-  projectId: string;
-  startTime: Date;
-  endTime: Date;
-  duration: number; // in minutes
-  date: string; // YYYY-MM-DD format
+  user_id: string;
+  project_id: string;
+  task_id?: string;
   description?: string;
+  start_time: string;
+  end_time?: string;
+  duration_minutes?: number;
+  is_billable: boolean;
+  hourly_rate?: number;
+  tags?: string[];
+  created_at: string;
+  updated_at: string;
+  // Legacy compatibility
+  projectId?: string;
+  startTime?: Date;
+  endTime?: Date;
+  duration?: number; // in minutes
+  date?: string; // YYYY-MM-DD format
   task?: string; // Task description
+}
+
+export interface Invoice {
+  id: string;
+  client_id: string;
+  invoice_number: string;
+  title: string;
+  description?: string;
+  subtotal: number;
+  tax_rate: number;
+  tax_amount: number;
+  discount_amount: number;
+  total_amount: number;
+  currency: string;
+  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
+  issue_date: string;
+  due_date?: string;
+  paid_date?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InvoiceLineItem {
+  id: string;
+  invoice_id: string;
+  time_entry_id?: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  created_at: string;
+}
+
+export interface Report {
+  id: string;
+  name: string;
+  description?: string;
+  type: 'time_summary' | 'project_summary' | 'client_summary' | 'detailed' | 'invoice_summary';
+  filters?: Record<string, any>;
+  schedule?: 'none' | 'daily' | 'weekly' | 'monthly';
+  recipients?: string[];
+  is_active: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface TimeSlot {

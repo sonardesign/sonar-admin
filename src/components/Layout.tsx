@@ -16,6 +16,7 @@ import {
 import { Button } from './ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { useAuth } from '../contexts/AuthContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -31,16 +32,16 @@ const navigation = [
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
-  const [profileName] = useState('John Doe'); // Mock user name
+  const { profile, signOut } = useAuth();
+  const profileName = profile?.full_name || 'User';
   
   const handleDarkModeToggle = () => {
     // TODO: Implement dark mode toggle
     console.log('Dark mode toggle clicked - not implemented yet');
   };
   
-  const handleLogout = () => {
-    // TODO: Implement logout functionality
-    console.log('Logout clicked - not implemented yet');
+  const handleLogout = async () => {
+    await signOut();
   };
 
   return (
