@@ -89,6 +89,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Initialize auth state
   useEffect(() => {
+    // Temporary: Skip Supabase auth for development
+    // This allows the app to load without requiring database setup
+    const skipAuth = true
+    
+    if (skipAuth) {
+      // Set loading to false immediately to show the auth page
+      setLoading(false)
+      return
+    }
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)

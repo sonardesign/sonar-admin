@@ -32,7 +32,7 @@ const navigation = [
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const { profile, signOut } = useAuth();
-  const profileName = profile?.full_name || 'User';
+  const profileName = profile?.full_name || 'Demo User';
   
   const handleDarkModeToggle = () => {
     // TODO: Implement dark mode toggle
