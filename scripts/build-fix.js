@@ -50,20 +50,19 @@ if (fs.existsSync(dashboardPath)) {
   console.log('✅ Fixed Dashboard.tsx');
 }
 
-// Fix 3: Update Calendar.tsx time entry creation
+// Fix 3: Update Calendar.tsx time entry creation  
 const calendarPath = path.join(__dirname, '../src/pages/Calendar.tsx');
 if (fs.existsSync(calendarPath)) {
   let calendarContent = fs.readFileSync(calendarPath, 'utf8');
   
-  // Fix selectedProject reference
-  calendarContent = calendarContent.replace(/selectedProject/g, 'selectedProjectId');
+  // More targeted fix - only replace the createTimeEntry call with proper context
+  const createTimeEntryPattern = /createTimeEntry\(\{\s*projectId:\s*[^,]+,[\s\S]*?\}\);/g;
   
-  // Fix createTimeEntry call
   calendarContent = calendarContent.replace(
-    /createTimeEntry\(\{[\s\S]*?\}\);/g,
+    createTimeEntryPattern,
     `createTimeEntry({
         user_id: 'temp-user',
-        project_id: selectedProjectId,
+        project_id: selectedProject,
         start_time: startTime.toISOString(),
         end_time: endTime.toISOString(),
         duration_minutes: duration,
@@ -72,7 +71,7 @@ if (fs.existsSync(calendarPath)) {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         // Legacy compatibility
-        projectId: selectedProjectId,
+        projectId: selectedProject,
         startTime: startTime,
         endTime: endTime,
         duration: duration,
@@ -90,30 +89,55 @@ const timeTrackingPath = path.join(__dirname, '../src/pages/TimeTracking.tsx');
 if (fs.existsSync(timeTrackingPath)) {
   let timeTrackingContent = fs.readFileSync(timeTrackingPath, 'utf8');
   
-  // Fix timer type
+  // Fix timer type - more specific replacement
   timeTrackingContent = timeTrackingContent.replace(
-    'const [timer, setTimer] = useState<number | null>(null);',
+    /const \[timer, setTimer\] = useState<number \| null>\(null\);/,
     'const [timer, setTimer] = useState<any>(null);'
   );
   
-  // Fix createTimeEntry calls
+  // More targeted fix for createTimeEntry calls - preserve original variable names
+  const createTimeEntryPattern1 = /createTimeEntry\(\{\s*projectId:\s*currentProject,[\s\S]*?\}\);/g;
+  const createTimeEntryPattern2 = /createTimeEntry\(\{\s*projectId:\s*selectedProject,[\s\S]*?\}\);/g;
+  
+  // Replace timer-based entry
   timeTrackingContent = timeTrackingContent.replace(
-    /createTimeEntry\(\{[\s\S]*?\}\);/g,
+    createTimeEntryPattern1,
     `createTimeEntry({
         user_id: 'temp-user',
-        project_id: currentProject || selectedProject,
-        start_time: (startTime || new Date(startTimeValue)).toISOString(),
-        end_time: (new Date()).toISOString(),
-        duration_minutes: Math.floor(((new Date()).getTime() - (startTime || new Date(startTimeValue)).getTime()) / (1000 * 60)),
+        project_id: currentProject,
+        start_time: startTime!.toISOString(),
+        end_time: now.toISOString(),
+        duration_minutes: Math.floor((now.getTime() - startTime!.getTime()) / (1000 * 60)),
+        is_billable: true,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+        // Legacy compatibility  
+        projectId: currentProject,
+        startTime: startTime!,
+        endTime: now,
+        duration: Math.floor((now.getTime() - startTime!.getTime()) / (1000 * 60)),
+        date: format(now, 'yyyy-MM-dd')
+      });`
+  );
+  
+  // Replace manual entry
+  timeTrackingContent = timeTrackingContent.replace(
+    createTimeEntryPattern2,
+    `createTimeEntry({
+        user_id: 'temp-user',
+        project_id: selectedProject,
+        start_time: new Date(startTimeValue).toISOString(),
+        end_time: new Date(endTimeValue).toISOString(),
+        duration_minutes: Math.floor((new Date(endTimeValue).getTime() - new Date(startTimeValue).getTime()) / (1000 * 60)),
         is_billable: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         // Legacy compatibility  
-        projectId: currentProject || selectedProject,
-        startTime: startTime || new Date(startTimeValue),
-        endTime: new Date(),
-        duration: Math.floor(((new Date()).getTime() - (startTime || new Date(startTimeValue)).getTime()) / (1000 * 60)),
-        date: format(new Date(), 'yyyy-MM-dd')
+        projectId: selectedProject,
+        startTime: new Date(startTimeValue),
+        endTime: new Date(endTimeValue),
+        duration: Math.floor((new Date(endTimeValue).getTime() - new Date(startTimeValue).getTime()) / (1000 * 60)),
+        date: format(new Date(startTimeValue), 'yyyy-MM-dd')
       });`
   );
   

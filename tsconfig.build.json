@@ -4,7 +4,14 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "strict": false,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "noImplicitAny": false,
+    "noImplicitReturns": false,
+    "noImplicitThis": false,
+    "noImplicitUseStrict": false,
+    "noStrictGenericChecks": true,
+    "suppressImplicitAnyIndexErrors": true,
+    "noErrorTruncation": true
   },
   "exclude": [
     "node_modules",
