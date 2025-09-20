@@ -1,8 +1,16 @@
 import { createClient } from '@supabase/supabase-js'
 
 // Supabase configuration
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'your_supabase_project_url_here'
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your_supabase_anon_key_here'
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ethrtamtoioydchylepo.supabase.co'
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV0aHJ0YW10b2lveWRjaHlsZXBvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzODcxMjUsImV4cCI6MjA3Mzk2MzEyNX0.SgLY6S5eGOgqZU9QXu55Fzsla-EHTDV0VWcv4dKYKdA'
+
+// Validate configuration
+if (!supabaseUrl || supabaseUrl === 'your_supabase_project_url_here') {
+  console.error('❌ VITE_SUPABASE_URL is not set or invalid')
+}
+if (!supabaseAnonKey || supabaseAnonKey === 'your_supabase_anon_key_here') {
+  console.error('❌ VITE_SUPABASE_ANON_KEY is not set or invalid')
+}
 
 // Create Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
