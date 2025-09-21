@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js'
-import { authStorage } from './cookies'
 
 // Supabase configuration
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ethrtamtoioydchylepo.supabase.co'
@@ -13,16 +12,12 @@ if (!supabaseAnonKey || supabaseAnonKey === 'your_supabase_anon_key_here') {
   console.error('❌ VITE_SUPABASE_ANON_KEY is not set or invalid')
 }
 
-// Create Supabase client with enhanced cookie-based storage
+// Create Supabase client with simple in-memory session storage
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    // Configure auth settings for secure token storage
     autoRefreshToken: true,
-    persistSession: true,
+    persistSession: false, // In-memory only
     detectSessionInUrl: true,
-    storage: authStorage,
-    storageKey: 'supabase.auth.token',
-    flowType: 'implicit'
   }
 })
 

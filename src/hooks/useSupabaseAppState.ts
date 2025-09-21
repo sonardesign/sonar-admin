@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Project, TimeEntry, ProjectColor, Client } from '../types'
 import { clientService, projectService, timeEntryService } from '../services/supabaseService'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from './useAuth'
 
 // This hook provides the same interface as useAppState but uses Supabase
 export const useSupabaseAppState = () => {

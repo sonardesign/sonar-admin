@@ -15,7 +15,7 @@ import {
 import { Button } from './ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-// import { useAuth } from '../contexts/AuthContext'; // Temporarily disabled
+import { useAuth } from '../hooks/useAuth';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -31,8 +31,10 @@ const navigation = [
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
-  // Temporary demo data
-  const profileName = 'Demo User';
+  const { user, signOut } = useAuth();
+  
+  // Get user info from Supabase user object
+  const profileName = user?.user_metadata?.full_name || user?.email || 'User';
   
   // Generate proper initials from the full name
   const getInitials = (name: string) => {
@@ -50,9 +52,15 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
   
   const handleLogout = async () => {
-    console.log('Demo logout clicked');
-    // Temporary - just reload page
-    window.location.reload();
+    console.log('🚪 Logout clicked');
+    try {
+      const { error } = await signOut();
+      if (error) {
+        console.error('❌ Logout error:', error);
+      }
+    } catch (error) {
+      console.error('💥 Logout exception:', error);
+    }
   };
 
   return (
@@ -110,7 +118,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                     </Avatar>
                         <div className="text-left">
                           <p className="text-sm font-medium text-foreground">{profileName}</p>
-                          <p className="text-xs text-muted-foreground">Demo User</p>
+                          <p className="text-xs text-muted-foreground">{user?.email}</p>
                         </div>
                   </div>
                   <ChevronUp className="h-4 w-4 text-muted-foreground" />

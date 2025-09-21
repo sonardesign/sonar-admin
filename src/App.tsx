@@ -1,7 +1,5 @@
-// import React from 'react' // Not needed with new JSX transform
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import { AuthProvider } from './contexts/AuthContext'
-import { useAuth } from './contexts/AuthContext'
+import { useAuth } from './hooks/useAuth'
 import { Layout } from './components/Layout'
 import { AuthPage } from './components/auth/AuthPage'
 import { Dashboard } from './pages/Dashboard'
@@ -11,12 +9,29 @@ import { Projects } from './pages/Projects'
 import { Reports } from './pages/Reports'
 import { Loader2 } from 'lucide-react'
 
-// Main app component that handles authentication state
-const AppContent = () => {
-  // TEMPORARY: Force demo mode to bypass all auth issues
-  console.log('🎭 Forcing demo mode - bypassing all auth')
+function App() {
+  const { user, loading } = useAuth()
+
+  // Show loading spinner while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show auth page if user is not logged in
+  if (!user) {
+    return <AuthPage />
+  }
+
+  // Show main app if user is logged in
   return (
-    <Router key="demo-app">
+    <Router>
       <Layout>
         <Routes>
           <Route path="/" element={<Dashboard />} />
@@ -27,15 +42,6 @@ const AppContent = () => {
         </Routes>
       </Layout>
     </Router>
-  )
-}
-
-// Root app component with providers
-function App() {
-  return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
   )
 }
 
