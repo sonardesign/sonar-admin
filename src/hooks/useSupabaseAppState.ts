@@ -12,16 +12,20 @@ export const useSupabaseAppState = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Load initial data (DISABLED FOR DEMO MODE)
+  // Load initial data
   useEffect(() => {
-    console.log('⚠️ useSupabaseAppState disabled in demo mode')
-    setLoading(false)
-    setError(null)
-    // Don't load any data - use empty arrays
-    setClients([])
-    setProjects([])
-    setTimeEntries([])
-  }, [])
+    if (user) {
+      console.log('🔄 useSupabaseAppState: User authenticated, loading data...')
+      loadData()
+    } else {
+      console.log('⚠️ useSupabaseAppState: No user, using empty data')
+      setLoading(false)
+      setError(null)
+      setClients([])
+      setProjects([])
+      setTimeEntries([])
+    }
+  }, [user])
 
   const loadData = async () => {
     setLoading(true)
@@ -30,15 +34,9 @@ export const useSupabaseAppState = () => {
     console.log('🔄 Starting data load...')
     
     try {
-      // Add timeout to prevent infinite loading (disabled for demo)
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Data loading timeout')), 60000) // 60 second timeout (effectively disabled)
-      })
-      
-      // Load clients with timeout
+      // Load clients
       console.log('📋 Loading clients...')
-      const clientsPromise = clientService.getAll()
-      const { data: clientsData, error: clientsError } = await Promise.race([clientsPromise, timeoutPromise])
+      const { data: clientsData, error: clientsError } = await clientService.getAll()
       
       if (clientsError) {
         console.error('❌ Error loading clients:', clientsError)
@@ -49,10 +47,9 @@ export const useSupabaseAppState = () => {
         setClients(clientsData || [])
       }
 
-      // Load projects with timeout
+      // Load projects
       console.log('📁 Loading projects...')
-      const projectsPromise = projectService.getAll()
-      const { data: projectsData, error: projectsError } = await Promise.race([projectsPromise, timeoutPromise])
+      const { data: projectsData, error: projectsError } = await projectService.getAll()
       
       if (projectsError) {
         console.error('❌ Error loading projects:', projectsError)
@@ -63,10 +60,9 @@ export const useSupabaseAppState = () => {
         setProjects(projectsData || [])
       }
 
-      // Load time entries with timeout
+      // Load time entries
       console.log('⏰ Loading time entries...')
-      const timeEntriesPromise = timeEntryService.getAll()
-      const { data: timeEntriesData, error: timeEntriesError } = await Promise.race([timeEntriesPromise, timeoutPromise])
+      const { data: timeEntriesData, error: timeEntriesError } = await timeEntryService.getAll()
       
       if (timeEntriesError) {
         console.error('❌ Error loading time entries:', timeEntriesError)

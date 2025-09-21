@@ -22,7 +22,14 @@ interface SelectedSlot extends TimeSlot {
 }
 
 export const Calendar: React.FC = () => {
-  const { getActiveProjects, createTimeEntry, loading, error } = useSupabaseAppState();
+  const { projects, timeEntries, getActiveProjects, createTimeEntry, loading, error } = useSupabaseAppState();
+  
+  console.log('📅 Calendar page data:', { 
+    projects: projects.length, 
+    timeEntries: timeEntries.length,
+    loading,
+    error 
+  });
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -235,6 +242,34 @@ export const Calendar: React.FC = () => {
         return '';
     }
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <Page>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading calendar data...</p>
+          </div>
+        </div>
+      </Page>
+    )
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <Page>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="text-destructive mb-2">Error loading calendar data</p>
+            <p className="text-muted-foreground text-sm">{error}</p>
+          </div>
+        </div>
+      </Page>
+    )
+  }
 
   return (
     <Page>
