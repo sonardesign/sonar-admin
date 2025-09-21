@@ -27,6 +27,22 @@ export const useProjectsData = () => {
       console.log('Supabase URL:', import.meta.env.VITE_SUPABASE_URL)
       console.log('Supabase client:', supabase)
       
+      // Test if we can access the projects table at all
+      console.log('🧪 Testing projects table access...')
+      try {
+        const { count, error: countError } = await supabase
+          .from('projects')
+          .select('*', { count: 'exact', head: true })
+        
+        if (countError) {
+          console.error('❌ Projects table count error:', countError)
+        } else {
+          console.log('✅ Projects table accessible, count:', count)
+        }
+      } catch (testErr) {
+        console.error('💥 Projects table test failed:', testErr)
+      }
+      
       // Load clients
       console.log('📋 Loading clients...')
       const clientsQuery = supabase
@@ -54,21 +70,15 @@ export const useProjectsData = () => {
         setClients(clientsData || [])
       }
 
-      // Load projects with client information
+      // Load projects (simplified query to debug 500 error)
       console.log('📁 Loading projects...')
-      const projectsQuery = supabase
-        .from('projects')
-        .select(`
-          *,
-          clients!inner(
-            id,
-            name
-          )
-        `)
-        .order('name')
+      console.log('📁 Attempting simple projects query...')
       
-      console.log('📁 Projects query object:', projectsQuery)
-      const { data: projectsData, error: projectsError } = await projectsQuery
+      // Try the simplest possible query first
+      const { data: projectsData, error: projectsError } = await supabase
+        .from('projects')
+        .select('id, name, client_id, color, status, is_archived, created_at, updated_at')
+        .limit(10)
       
       console.log('📁 Raw projects response:', { data: projectsData, error: projectsError })
       
@@ -80,31 +90,76 @@ export const useProjectsData = () => {
           hint: projectsError.hint,
           code: projectsError.code
         })
-        setError(`Failed to load projects: ${projectsError.message}`)
+        
+        // Try an even simpler query as fallback
+        console.log('🔄 Trying fallback query...')
+        try {
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('projects')
+            .select('id, name')
+            .limit(5)
+          
+          if (fallbackError) {
+            console.error('❌ Fallback query also failed:', fallbackError)
+            setError(`Failed to load projects: ${projectsError.message}`)
+          } else {
+            console.log('✅ Fallback query succeeded:', fallbackData)
+            // Use minimal data
+            const minimalProjects: Project[] = (fallbackData || []).map((project: any) => ({
+              id: project.id,
+              name: project.name,
+              description: '',
+              color: '#3b82f6',
+              client_id: '',
+              client_name: 'Unknown Client',
+              status: 'active',
+              is_archived: false,
+              created_by: '',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              // Legacy compatibility
+              clientId: '',
+              clientName: 'Unknown Client',
+              archived: false,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            }))
+            setProjects(minimalProjects)
+          }
+        } catch (fallbackErr) {
+          console.error('💥 Fallback query exception:', fallbackErr)
+          setError(`Failed to load projects: Database connection issue`)
+        }
       } else {
         console.log('✅ Projects loaded successfully:', projectsData?.length || 0, 'records')
         console.log('✅ Projects data:', projectsData)
         
-        // Transform the data to match our Project interface
-        const transformedProjects: Project[] = (projectsData || []).map((project: any) => ({
-          id: project.id,
-          name: project.name,
-          description: project.description,
-          color: project.color || '#3b82f6',
-          client_id: project.client_id,
-          client_name: project.clients?.name || 'Unknown Client',
-          status: project.status || 'active',
-          is_archived: project.is_archived || false,
-          created_by: project.created_by,
-          created_at: project.created_at,
-          updated_at: project.updated_at,
-          // Legacy compatibility
-          clientId: project.client_id,
-          clientName: project.clients?.name || 'Unknown Client',
-          archived: project.is_archived || false,
-          createdAt: project.created_at,
-          updatedAt: project.updated_at
-        }))
+        // Transform the data and match with clients
+        const transformedProjects: Project[] = (projectsData || []).map((project: any) => {
+          // Find the client for this project
+          const client = clientsData?.find(c => c.id === project.client_id)
+          const clientName = client?.name || 'Unknown Client'
+          
+          return {
+            id: project.id,
+            name: project.name,
+            description: project.description,
+            color: project.color || '#3b82f6',
+            client_id: project.client_id,
+            client_name: clientName,
+            status: project.status || 'active',
+            is_archived: project.is_archived || false,
+            created_by: project.created_by,
+            created_at: project.created_at,
+            updated_at: project.updated_at,
+            // Legacy compatibility
+            clientId: project.client_id,
+            clientName: clientName,
+            archived: project.is_archived || false,
+            createdAt: project.created_at,
+            updatedAt: project.updated_at
+          }
+        })
         
         setProjects(transformedProjects)
       }
@@ -202,13 +257,7 @@ export const useProjectsData = () => {
           status: 'active',
           is_archived: false
         }])
-        .select(`
-          *,
-          clients!inner(
-            id,
-            name
-          )
-        `)
+        .select('*')
         .single()
 
       if (error) {
@@ -220,6 +269,10 @@ export const useProjectsData = () => {
       if (data) {
         console.log('✅ Project created:', data.name)
         
+        // Find the client for this project
+        const client = clients.find(c => c.id === data.client_id)
+        const clientName = client?.name || 'Unknown Client'
+        
         // Transform the data to match our Project interface
         const transformedProject: Project = {
           id: data.id,
@@ -227,7 +280,7 @@ export const useProjectsData = () => {
           description: data.description,
           color: data.color,
           client_id: data.client_id,
-          client_name: data.clients?.name || 'Unknown Client',
+          client_name: clientName,
           status: data.status,
           is_archived: data.is_archived,
           created_by: data.created_by,
@@ -235,7 +288,7 @@ export const useProjectsData = () => {
           updated_at: data.updated_at,
           // Legacy compatibility
           clientId: data.client_id,
-          clientName: data.clients?.name || 'Unknown Client',
+          clientName: clientName,
           archived: data.is_archived,
           createdAt: data.created_at,
           updatedAt: data.updated_at
@@ -270,13 +323,7 @@ export const useProjectsData = () => {
         .from('projects')
         .update(dbUpdates)
         .eq('id', id)
-        .select(`
-          *,
-          clients!inner(
-            id,
-            name
-          )
-        `)
+        .select('*')
         .single()
 
       if (error) {
@@ -288,6 +335,10 @@ export const useProjectsData = () => {
       if (data) {
         console.log('✅ Project updated:', data.name)
         
+        // Find the client for this project
+        const client = clients.find(c => c.id === data.client_id)
+        const clientName = client?.name || 'Unknown Client'
+        
         // Transform the data to match our Project interface
         const transformedProject: Project = {
           id: data.id,
@@ -295,7 +346,7 @@ export const useProjectsData = () => {
           description: data.description,
           color: data.color,
           client_id: data.client_id,
-          client_name: data.clients?.name || 'Unknown Client',
+          client_name: clientName,
           status: data.status,
           is_archived: data.is_archived,
           created_by: data.created_by,
@@ -303,7 +354,7 @@ export const useProjectsData = () => {
           updated_at: data.updated_at,
           // Legacy compatibility
           clientId: data.client_id,
-          clientName: data.clients?.name || 'Unknown Client',
+          clientName: clientName,
           archived: data.is_archived,
           createdAt: data.created_at,
           updatedAt: data.updated_at
