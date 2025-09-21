@@ -379,8 +379,52 @@ export const useProjectsData = () => {
   }, [])
 
   const archiveProject = useCallback(async (id: string) => {
-    await updateProject(id, { is_archived: true })
-  }, [updateProject])
+    try {
+      console.log('📦 Archiving project:', id)
+      const { error } = await supabase
+        .from('projects')
+        .update({ is_archived: true, status: 'completed' })
+        .eq('id', id)
+
+      if (error) {
+        console.error('❌ Error archiving project:', error)
+        setError('Failed to archive project')
+        return
+      }
+
+      console.log('✅ Project archived:', id)
+      setProjects(prev => prev.map(p =>
+        p.id === id ? { ...p, is_archived: true, archived: true, status: 'completed' } : p
+      ))
+    } catch (err) {
+      console.error('💥 Error archiving project:', err)
+      setError('Failed to archive project')
+    }
+  }, [])
+
+  const unarchiveProject = useCallback(async (id: string) => {
+    try {
+      console.log('📤 Unarchiving project:', id)
+      const { error } = await supabase
+        .from('projects')
+        .update({ is_archived: false, status: 'active' })
+        .eq('id', id)
+
+      if (error) {
+        console.error('❌ Error unarchiving project:', error)
+        setError('Failed to unarchive project')
+        return
+      }
+
+      console.log('✅ Project unarchived:', id)
+      setProjects(prev => prev.map(p =>
+        p.id === id ? { ...p, is_archived: false, archived: false, status: 'active' } : p
+      ))
+    } catch (err) {
+      console.error('💥 Error unarchiving project:', err)
+      setError('Failed to unarchive project')
+    }
+  }, [])
 
   const deleteProject = useCallback(async (id: string) => {
     try {
@@ -409,6 +453,34 @@ export const useProjectsData = () => {
     return projects.filter(p => !p.is_archived && !p.archived)
   }, [projects])
 
+  const deleteClient = useCallback(async (id: string) => {
+    try {
+      console.log('🗑️ Deleting client:', id)
+      const hasProjects = projects.some(p => p.client_id === id || p.clientId === id)
+      if (hasProjects) {
+        setError('Cannot delete client with associated projects')
+        return
+      }
+
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', id)
+
+      if (error) {
+        console.error('❌ Error deleting client:', error)
+        setError('Failed to delete client')
+        return
+      }
+
+      console.log('✅ Client deleted:', id)
+      setClients(prev => prev.filter(c => c.id !== id))
+    } catch (err) {
+      console.error('💥 Error deleting client:', err)
+      setError('Failed to delete client')
+    }
+  }, [projects])
+
   const getClientById = useCallback((id: string) => {
     return clients.find(c => c.id === id)
   }, [clients])
@@ -427,12 +499,14 @@ export const useProjectsData = () => {
     // Client methods
     createClient,
     updateClient,
+    deleteClient,
     getClientById,
     
     // Project methods
     createProject,
     updateProject,
     archiveProject,
+    unarchiveProject,
     deleteProject,
     getActiveProjects,
     

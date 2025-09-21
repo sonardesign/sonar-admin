@@ -7,7 +7,6 @@ import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { Plus, Edit2, Archive, Trash2, Palette, Users } from 'lucide-react';
-import { cn } from '../lib/utils';
 import { useProjectsData } from '../hooks/useProjectsData';
 import { Project, ProjectColor, Client } from '../types';
 import { Page } from '../components/Page';
@@ -32,6 +31,7 @@ export const Projects: React.FC = () => {
     createProject, 
     updateProject, 
     archiveProject, 
+    unarchiveProject,
     deleteProject,
     loading,
     error 
@@ -370,8 +370,9 @@ export const Projects: React.FC = () => {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => updateProject(project.id, { archived: false })}
+                                onClick={() => unarchiveProject(project.id)}
                                 className="h-8 w-8 p-0"
+                                title="Unarchive Project"
                               >
                                 <Archive className="h-4 w-4" />
                               </Button>

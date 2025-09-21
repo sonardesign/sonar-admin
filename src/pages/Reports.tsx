@@ -10,6 +10,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '../components/ui/chart'
 import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts'
 import { useSupabaseAppState } from '../hooks/useSupabaseAppState'
+import { PDFExportService } from '../services/pdfExportService'
+import { CSVExportService } from '../services/csvExportService'
 import { cn } from '../lib/utils'
 import { Page } from '../components/Page'
 
@@ -88,14 +90,53 @@ export const Reports: React.FC = () => {
     setIsCalendarOpen(false)
   }
 
-  const handleExportPDF = () => {
-    console.log('Exporting to PDF...')
-    // TODO: Implement PDF export functionality
+  const handleExportPDF = async () => {
+    try {
+      console.log('🔄 Generating PDF report...')
+      
+      const pdfService = new PDFExportService()
+      
+      await pdfService.exportReport({
+        filteredEntries,
+        projects,
+        clients,
+        users,
+        dateRange,
+        selectedClient,
+        selectedProject,
+        selectedColleague
+      })
+      
+      console.log('✅ PDF report generated successfully')
+    } catch (error) {
+      console.error('❌ Error generating PDF:', error)
+      // You could add a toast notification here
+      alert('Error generating PDF report. Please try again.')
+    }
   }
 
   const handleExportCSV = () => {
-    console.log('Exporting to CSV...')
-    // TODO: Implement CSV export functionality
+    try {
+      console.log('🔄 Generating CSV export...')
+      
+      const csvService = new CSVExportService()
+      
+      csvService.exportToCSV({
+        filteredEntries,
+        projects,
+        clients,
+        users,
+        dateRange,
+        selectedClient,
+        selectedProject,
+        selectedColleague
+      })
+      
+      console.log('✅ CSV export generated successfully')
+    } catch (error) {
+      console.error('❌ Error generating CSV:', error)
+      alert('Error generating CSV export. Please try again.')
+    }
   }
 
   const formatDateRange = (range: DateRange) => {
