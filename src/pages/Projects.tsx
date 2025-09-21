@@ -33,13 +33,18 @@ export const Projects: React.FC = () => {
     archiveProject, 
     unarchiveProject,
     deleteProject,
+    deleteClient,
     loading,
-    error 
+    error,
+    clearError,
+    refresh 
   } = useProjectsData();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isClientCreateOpen, setIsClientCreateOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [deletingClient, setDeletingClient] = useState<Client | null>(null);
+  const [deleteClientOption, setDeleteClientOption] = useState<'move_to_unassigned' | 'delete_projects'>('move_to_unassigned');
   const [newProjectName, setNewProjectName] = useState('');
   const [newClientName, setNewClientName] = useState('');
   const [selectedClientId, setSelectedClientId] = useState<string>('');
@@ -59,19 +64,49 @@ export const Projects: React.FC = () => {
     }
   };
 
-  const handleCreateClient = () => {
+  const handleCreateClient = async () => {
     if (newClientName.trim()) {
-      createClient(newClientName.trim());
-      setNewClientName('');
-      setIsClientCreateOpen(false);
+      console.log('🔄 Creating client:', newClientName.trim());
+      const result = await createClient(newClientName.trim());
+      if (result) {
+        console.log('✅ Client creation successful, closing dialog');
+        setNewClientName('');
+        setIsClientCreateOpen(false);
+        // Refresh data to ensure UI is up to date
+        console.log('🔄 Refreshing data after client creation...');
+        await refresh();
+      } else {
+        console.error('❌ Client creation failed');
+        // Keep dialog open so user can retry
+      }
     }
   };
 
-  const handleUpdateClient = () => {
+  const handleUpdateClient = async () => {
     if (editingClient && newClientName.trim()) {
-      updateClient(editingClient.id, { name: newClientName.trim() });
+      console.log('🔄 Updating client:', editingClient.id, newClientName.trim());
+      await updateClient(editingClient.id, { name: newClientName.trim() });
+      console.log('✅ Client update completed');
       setEditingClient(null);
       setNewClientName('');
+    }
+  };
+
+  const handleDeleteClient = async () => {
+    if (deletingClient) {
+      console.log('🗑️ Deleting client with option:', deleteClientOption);
+      await deleteClient(deletingClient.id, deleteClientOption);
+      setDeletingClient(null);
+      setDeleteClientOption('move_to_unassigned');
+    }
+  };
+
+  const startDeletingClient = (client: Client) => {
+    setDeletingClient(client);
+    const clientProjects = projects.filter(p => p.client_id === client.id || p.clientId === client.id);
+    if (clientProjects.length === 0) {
+      // No projects, safe to delete immediately
+      setDeleteClientOption('move_to_unassigned');
     }
   };
 
@@ -109,6 +144,24 @@ export const Projects: React.FC = () => {
     ? projects.filter(p => p.is_archived || p.archived)
     : projects.filter(p => !(p.is_archived || p.archived));
 
+  // Debug logging
+  console.log('🔍 Projects page debug:', {
+    clientsCount: clients.length,
+    projectsCount: projects.length,
+    filteredProjectsCount: filteredProjects.length,
+    clients: clients.map(c => ({ 
+      id: c.id.substring(0, 8), 
+      name: c.name, 
+      is_active: c.is_active,
+      created_at: c.created_at?.substring(0, 10)
+    })),
+    duplicateClientNames: clients.reduce((acc, client) => {
+      acc[client.name] = (acc[client.name] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>),
+    showArchived
+  });
+
   // Group projects by client
   const groupedProjects = filteredProjects.reduce((groups, project) => {
     const clientName = project.client_name || project.clientName || 'Unassigned';
@@ -118,6 +171,17 @@ export const Projects: React.FC = () => {
     groups[clientName].push(project);
     return groups;
   }, {} as Record<string, Project[]>);
+
+  // Add clients with no projects to the grouped list
+  const allGroupedProjects = { ...groupedProjects };
+  clients.forEach(client => {
+    const hasProjects = Object.keys(groupedProjects).includes(client.name);
+    if (!hasProjects) {
+      allGroupedProjects[client.name] = [];
+    }
+  });
+
+  console.log('📊 Grouped projects:', Object.keys(allGroupedProjects));
 
   // Show loading state
   if (loading) {
@@ -178,6 +242,17 @@ export const Projects: React.FC = () => {
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
+                {error && (
+                  <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                    <p className="text-sm text-destructive">{error}</p>
+                    <button 
+                      onClick={clearError}
+                      className="text-xs text-destructive/70 hover:text-destructive mt-1 underline"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
                 <div>
                   <Label htmlFor="clientName">Client Name</Label>
                   <Input
@@ -290,106 +365,162 @@ export const Projects: React.FC = () => {
         </Card>
       ) : (
         <div className="space-y-8">
-          {Object.entries(groupedProjects).map(([clientName, clientProjects]) => (
+          {Object.entries(allGroupedProjects).map(([clientName, clientProjects]) => (
             <div key={clientName}>
               {/* Client Header */}
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-foreground">{clientName}</h2>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => startEditingClient(clients.find(c => c.name === clientName)!)}
-                  className="h-8 w-8 p-0"
-                >
-                  <Edit2 className="h-4 w-4" />
-                </Button>
+                <div>
+                  <h2 className="text-xl font-semibold text-foreground">{clientName}</h2>
+                  {(() => {
+                    const clientsWithThisName = clients.filter(c => c.name === clientName);
+                    const mainClient = clientsWithThisName[0];
+                    return (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        ID: {mainClient?.id.substring(0, 8)}... | 
+                        Status: {mainClient?.is_active ? 'Active' : 'Inactive'} |
+                        Created: {mainClient?.created_at?.substring(0, 10)}
+                        {clientsWithThisName.length > 1 && (
+                          <span className="text-orange-600 font-medium ml-2">
+                            ⚠️ {clientsWithThisName.length} duplicates found
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+                <div className="flex items-center gap-1">
+                  {(() => {
+                    const clientsWithThisName = clients.filter(c => c.name === clientName);
+                    return clientsWithThisName.length > 1 ? (
+                      // Show dropdown for multiple clients with same name
+                      <select 
+                        className="text-xs border rounded px-2 py-1 mr-2"
+                        onChange={(e) => {
+                          const selectedClient = clients.find(c => c.id === e.target.value);
+                          if (selectedClient) startEditingClient(selectedClient);
+                        }}
+                        defaultValue=""
+                      >
+                        <option value="" disabled>Select client to edit ({clientsWithThisName.length} found)</option>
+                        {clientsWithThisName.map((client, idx) => (
+                          <option key={client.id} value={client.id}>
+                            #{idx + 1}: {client.id.substring(0, 8)}... ({client.is_active ? 'Active' : 'Inactive'})
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => startEditingClient(clients.find(c => c.name === clientName)!)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                    );
+                  })()}
+                </div>
               </div>
               
               {/* Projects List for this Client */}
               <Card>
                 <CardContent className="p-0">
-                  <div className="divide-y divide-border">
-                    {clientProjects.map((project) => (
-                      <div
-                        key={project.id}
-                        className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
+                  {clientProjects.length === 0 ? (
+                    <div className="p-8 text-center text-muted-foreground">
+                      <div className="text-sm">No projects for this client yet.</div>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-2"
+                        onClick={() => setIsCreateOpen(true)}
                       >
-                        {/* Left side: Color, Title, and Date */}
-                        <div className="flex items-center space-x-4">
-                          <div
-                            className="w-4 h-4 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: project.color }}
-                          />
-                          <div>
-                            <h3 className="font-medium text-foreground">{project.name}</h3>
-                            <p className="text-sm text-muted-foreground">
-                              Created {new Date(project.created_at || project.createdAt || Date.now()).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric'
-                              })}
-                              {(project.updated_at || project.updatedAt) && 
-                               new Date(project.updated_at || project.updatedAt!).getTime() !== new Date(project.created_at || project.createdAt || Date.now()).getTime() && (
-                                <span>
-                                  {' • Updated '}
-                                  {new Date(project.updated_at || project.updatedAt!).toLocaleDateString('en-US', {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric'
-                                  })}
-                                </span>
+                        Create First Project
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {clientProjects.map((project) => (
+                        <div
+                          key={project.id}
+                          className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
+                        >
+                          {/* Left side: Color, Title, and Date */}
+                          <div className="flex items-center space-x-4">
+                            <div
+                              className="w-4 h-4 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: project.color }}
+                            />
+                            <div>
+                              <h3 className="font-medium text-foreground">{project.name}</h3>
+                              <p className="text-sm text-muted-foreground">
+                                Created {new Date(project.created_at || project.createdAt || Date.now()).toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric'
+                                })}
+                                {(project.updated_at || project.updatedAt) && 
+                                 new Date(project.updated_at || project.updatedAt!).getTime() !== new Date(project.created_at || project.createdAt || Date.now()).getTime() && (
+                                  <span>
+                                    {' • Updated '}
+                                    {new Date(project.updated_at || project.updatedAt!).toLocaleDateString('en-US', {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric'
+                                    })}
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          {/* Right side: Status Badge and Action Icons */}
+                          <div className="flex items-center space-x-3">
+                            <Badge variant={project.archived ? 'secondary' : 'default'}>
+                              {project.archived ? 'Archived' : 'Active'}
+                            </Badge>
+                            <div className="flex items-center space-x-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => startEditing(project)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                              {!project.archived ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => archiveProject(project.id)}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Archive className="h-4 w-4" />
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => unarchiveProject(project.id)}
+                                  className="h-8 w-8 p-0"
+                                  title="Unarchive Project"
+                                >
+                                  <Archive className="h-4 w-4" />
+                                </Button>
                               )}
-                            </p>
-                          </div>
-                        </div>
-                        
-                        {/* Right side: Status Badge and Action Icons */}
-                        <div className="flex items-center space-x-3">
-                          <Badge variant={project.archived ? 'secondary' : 'default'}>
-                            {project.archived ? 'Archived' : 'Active'}
-                          </Badge>
-                          <div className="flex items-center space-x-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => startEditing(project)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                            {!project.archived ? (
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => archiveProject(project.id)}
-                                className="h-8 w-8 p-0"
+                                onClick={() => deleteProject(project.id)}
+                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                               >
-                                <Archive className="h-4 w-4" />
+                                <Trash2 className="h-4 w-4" />
                               </Button>
-                            ) : (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => unarchiveProject(project.id)}
-                                className="h-8 w-8 p-0"
-                                title="Unarchive Project"
-                              >
-                                <Archive className="h-4 w-4" />
-                              </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => deleteProject(project.id)}
-                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -477,12 +608,118 @@ export const Projects: React.FC = () => {
                 placeholder="Enter client name..."
               />
             </div>
+            <div className="flex justify-between">
+              <Button 
+                variant="destructive" 
+                onClick={() => {
+                  if (editingClient) {
+                    startDeletingClient(editingClient);
+                    setEditingClient(null);
+                    setNewClientName('');
+                  }
+                }}
+              >
+                Delete Client
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setEditingClient(null)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleUpdateClient} disabled={!newClientName.trim()}>
+                  Update Client
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Client Confirmation Dialog */}
+      <Dialog open={!!deletingClient} onOpenChange={() => setDeletingClient(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Client</DialogTitle>
+            <DialogDescription>
+              You are about to delete "{deletingClient?.name}". What should happen to the associated projects?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {error && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                <p className="text-sm text-destructive">{error}</p>
+                <button 
+                  onClick={clearError}
+                  className="text-xs text-destructive/70 hover:text-destructive mt-1 underline"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+            
+            {deletingClient && (
+              <div className="p-3 bg-muted rounded-md">
+                <p className="text-sm font-medium">
+                  Projects associated with this client: {projects.filter(p => p.client_id === deletingClient.id || p.clientId === deletingClient.id).length}
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <Label>Choose deletion option:</Label>
+              <div className="space-y-2">
+                <div 
+                  className={`p-3 border rounded-md cursor-pointer transition-colors ${
+                    deleteClientOption === 'move_to_unassigned' ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted/50'
+                  }`}
+                  onClick={() => setDeleteClientOption('move_to_unassigned')}
+                >
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      deleteClientOption === 'move_to_unassigned' ? 'border-primary' : 'border-border'
+                    }`}>
+                      {deleteClientOption === 'move_to_unassigned' && (
+                        <div className="w-2 h-2 rounded-full bg-primary" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium">Move projects to "Unassigned" client</div>
+                      <div className="text-sm text-muted-foreground">
+                        Projects will be moved to an "Unassigned" client group. This is the safer option.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div 
+                  className={`p-3 border rounded-md cursor-pointer transition-colors border-destructive/20 ${
+                    deleteClientOption === 'delete_projects' ? 'bg-destructive/10' : 'hover:bg-destructive/5'
+                  }`}
+                  onClick={() => setDeleteClientOption('delete_projects')}
+                >
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      deleteClientOption === 'delete_projects' ? 'border-destructive' : 'border-border'
+                    }`}>
+                      {deleteClientOption === 'delete_projects' && (
+                        <div className="w-2 h-2 rounded-full bg-destructive" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-destructive">Delete all associated projects</div>
+                      <div className="text-sm text-muted-foreground">
+                        ⚠️ This will permanently delete all projects and their time entries. This cannot be undone!
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setEditingClient(null)}>
+              <Button variant="outline" onClick={() => setDeletingClient(null)}>
                 Cancel
               </Button>
-              <Button onClick={handleUpdateClient} disabled={!newClientName.trim()}>
-                Update Client
+              <Button variant="destructive" onClick={handleDeleteClient}>
+                {deleteClientOption === 'delete_projects' ? 'Delete Client & Projects' : 'Delete Client'}
               </Button>
             </div>
           </div>

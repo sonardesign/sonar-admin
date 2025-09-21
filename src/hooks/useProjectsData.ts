@@ -43,17 +43,24 @@ export const useProjectsData = () => {
         console.error('💥 Projects table test failed:', testErr)
       }
       
-      // Load clients
+      // Load clients - Load ALL clients (active and inactive) to see duplicates
       console.log('📋 Loading clients...')
       const clientsQuery = supabase
         .from('clients')
         .select('*')
-        .order('name')
+        // Remove is_active filter to see ALL clients including duplicates
+        .order('name', { ascending: true })
+        .order('created_at', { ascending: true })
       
       console.log('📋 Clients query object:', clientsQuery)
       const { data: clientsData, error: clientsError } = await clientsQuery
       
-      console.log('📋 Raw clients response:', { data: clientsData, error: clientsError })
+      console.log('📋 Raw clients response:', { 
+        data: clientsData, 
+        error: clientsError,
+        count: clientsData?.length || 0,
+        duplicateNames: clientsData ? [...new Set(clientsData.map(c => c.name))].length !== clientsData.length : false
+      })
       
       if (clientsError) {
         console.error('❌ Error loading clients:', clientsError)
@@ -190,13 +197,30 @@ export const useProjectsData = () => {
 
       if (error) {
         console.error('❌ Error creating client:', error)
-        setError('Failed to create client')
+        console.error('❌ Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        })
+        
+        // Check if it's a permission error
+        if (error.message?.includes('permission') || error.code === '42501') {
+          setError('Permission denied: You need manager or admin role to create clients')
+        } else {
+          setError(`Failed to create client: ${error.message}`)
+        }
         return null
       }
 
       if (data) {
         console.log('✅ Client created:', data.name)
-        setClients(prev => [...prev, data])
+        console.log('🔄 Adding client to state:', data)
+        setClients(prev => {
+          const updated = [...prev, data]
+          console.log('📋 Updated clients list:', updated.map(c => ({ id: c.id, name: c.name })))
+          return updated
+        })
         return data
       }
 
@@ -453,33 +477,123 @@ export const useProjectsData = () => {
     return projects.filter(p => !p.is_archived && !p.archived)
   }, [projects])
 
-  const deleteClient = useCallback(async (id: string) => {
+  const deleteClient = useCallback(async (id: string, deleteOption: 'move_to_unassigned' | 'delete_projects' = 'move_to_unassigned') => {
     try {
-      console.log('🗑️ Deleting client:', id)
-      const hasProjects = projects.some(p => p.client_id === id || p.clientId === id)
-      if (hasProjects) {
-        setError('Cannot delete client with associated projects')
-        return
+      console.log('🗑️ Deleting client:', id, 'with option:', deleteOption)
+      
+      const clientProjects = projects.filter(p => p.client_id === id || p.clientId === id)
+      console.log('📁 Found projects for client:', clientProjects.length)
+
+      if (deleteOption === 'delete_projects' && clientProjects.length > 0) {
+        // Delete all projects associated with this client
+        console.log('🗑️ Deleting associated projects...')
+        for (const project of clientProjects) {
+          const { error: projectError } = await supabase
+            .from('projects')
+            .delete()
+            .eq('id', project.id)
+          
+          if (projectError) {
+            console.error('❌ Error deleting project:', project.id, projectError)
+            setError(`Failed to delete project: ${project.name}`)
+            return
+          }
+        }
+        
+        // Update local state to remove deleted projects
+        setProjects(prev => prev.filter(p => !(p.client_id === id || p.clientId === id)))
+        
+      } else if (deleteOption === 'move_to_unassigned' && clientProjects.length > 0) {
+        // Create an "Unassigned" client if it doesn't exist
+        console.log('📦 Moving projects to Unassigned client...')
+        
+        let unassignedClient = clients.find(c => c.name === 'Unassigned')
+        if (!unassignedClient) {
+          console.log('➕ Creating Unassigned client...')
+          const { data: newUnassignedClient, error: createError } = await supabase
+            .from('clients')
+            .insert([{
+              name: 'Unassigned',
+              is_active: true
+            }])
+            .select()
+            .single()
+          
+          if (createError) {
+            console.error('❌ Error creating Unassigned client:', createError)
+            setError('Failed to create Unassigned client')
+            return
+          }
+          
+          unassignedClient = newUnassignedClient
+          setClients(prev => [...prev, newUnassignedClient])
+        }
+        
+        // Move projects to Unassigned client
+        for (const project of clientProjects) {
+          const { error: updateError } = await supabase
+            .from('projects')
+            .update({ client_id: unassignedClient.id })
+            .eq('id', project.id)
+          
+          if (updateError) {
+            console.error('❌ Error moving project:', project.id, updateError)
+            setError(`Failed to move project: ${project.name}`)
+            return
+          }
+        }
+        
+        // Update local state
+        setProjects(prev => prev.map(p => 
+          (p.client_id === id || p.clientId === id) 
+            ? { ...p, client_id: unassignedClient!.id, clientId: unassignedClient!.id, client_name: 'Unassigned', clientName: 'Unassigned' }
+            : p
+        ))
       }
 
-      const { error } = await supabase
+      // Delete the client
+      console.log('🗑️ Attempting to delete client from database:', id)
+      const { error, data } = await supabase
         .from('clients')
         .delete()
         .eq('id', id)
+        .select()
+
+      console.log('🗑️ Delete response:', { error, data })
 
       if (error) {
         console.error('❌ Error deleting client:', error)
-        setError('Failed to delete client')
+        console.error('❌ Delete error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        })
+        
+        // Check if it's a permission error
+        if (error.message?.includes('permission') || error.code === '42501') {
+          setError('Permission denied: You need admin role to delete clients')
+        } else if (error.code === '23503') {
+          setError('Cannot delete client: It has associated projects or data')
+        } else {
+          setError(`Failed to delete client: ${error.message}`)
+        }
         return
       }
 
-      console.log('✅ Client deleted:', id)
-      setClients(prev => prev.filter(c => c.id !== id))
+      console.log('✅ Client deleted from database:', id)
+      console.log('🔄 Updating local state...')
+      setClients(prev => {
+        const updated = prev.filter(c => c.id !== id)
+        console.log('📋 Clients after deletion:', updated.map(c => ({ id: c.id, name: c.name })))
+        return updated
+      })
+      
     } catch (err) {
       console.error('💥 Error deleting client:', err)
       setError('Failed to delete client')
     }
-  }, [projects])
+  }, [projects, clients])
 
   const getClientById = useCallback((id: string) => {
     return clients.find(c => c.id === id)
