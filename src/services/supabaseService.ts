@@ -330,7 +330,15 @@ export const timeEntryService = {
   // Create time entry
   async create(entry: Omit<TimeEntry, 'id' | 'created_at' | 'updated_at'>): Promise<{ data: TimeEntry | null; error: Error | null }> {
     try {
+      // Get the current authenticated user
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError || !user) {
+        return { data: null, error: new Error('User not authenticated') }
+      }
+
       const entryData = {
+        user_id: user.id, // Set the authenticated user ID
         project_id: entry.project_id || entry.projectId!,
         description: entry.description || entry.task,
         start_time: entry.start_time || entry.startTime!.toISOString(),

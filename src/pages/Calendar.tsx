@@ -46,6 +46,42 @@ export const Calendar: React.FC = () => {
   
   const activeProjects = getActiveProjects();
 
+  // Helper function to get project by ID
+  const getProjectById = useCallback((projectId: string) => {
+    return projects.find(p => p.id === projectId);
+  }, [projects]);
+
+  // Helper function to get time entries for a specific date and time range
+  const getTimeEntriesForSlot = useCallback((date: Date, hour: number, quarter: number) => {
+    const slotStart = new Date(date);
+    slotStart.setHours(hour, quarter, 0, 0);
+    
+    const slotEnd = new Date(slotStart);
+    slotEnd.setMinutes(slotEnd.getMinutes() + 15);
+
+    return timeEntries.filter(entry => {
+      const entryStart = new Date(entry.start_time || entry.startTime!);
+      const entryEnd = new Date(entry.end_time || entry.endTime!);
+      
+      // Check if the time entry overlaps with this 15-minute slot
+      return entryStart < slotEnd && entryEnd > slotStart;
+    });
+  }, [timeEntries]);
+
+  // Helper function to get time entries for a specific day
+  const getTimeEntriesForDay = useCallback((date: Date) => {
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    return timeEntries.filter(entry => {
+      const entryStart = new Date(entry.start_time || entry.startTime!);
+      return entryStart >= dayStart && entryStart <= dayEnd;
+    });
+  }, [timeEntries]);
+
   // Generate week dates
   const getWeekDates = (date: Date) => {
     const week = [];
@@ -329,6 +365,9 @@ export const Calendar: React.FC = () => {
               onMouseDown={handleMouseDown}
               onMouseEnter={handleMouseEnter}
               onMouseUp={handleMouseUp}
+              timeEntries={timeEntries}
+              getProjectById={getProjectById}
+              getTimeEntriesForSlot={getTimeEntriesForSlot}
             />
           </TabsContent>
 
@@ -341,6 +380,9 @@ export const Calendar: React.FC = () => {
               onMouseDown={handleMouseDown}
               onMouseEnter={handleMouseEnter}
               onMouseUp={handleMouseUp}
+              timeEntries={timeEntries}
+              getProjectById={getProjectById}
+              getTimeEntriesForSlot={getTimeEntriesForSlot}
             />
           </TabsContent>
 
@@ -354,6 +396,9 @@ export const Calendar: React.FC = () => {
               onMouseDown={handleMouseDown}
               onMouseEnter={handleMouseEnter}
               onMouseUp={handleMouseUp}
+              timeEntries={timeEntries}
+              getProjectById={getProjectById}
+              getTimeEntriesForDay={getTimeEntriesForDay}
             />
           </TabsContent>
         </Tabs>
@@ -449,7 +494,10 @@ const DayView: React.FC<{
   onMouseDown: (day: number, hour: number, quarter: number) => void;
   onMouseEnter: (day: number, hour: number, quarter: number) => void;
   onMouseUp: () => void;
-}> = ({ currentDate, selectedSlots, onMouseDown, onMouseEnter, onMouseUp }) => {
+  timeEntries: any[];
+  getProjectById: (id: string) => any;
+  getTimeEntriesForSlot: (date: Date, hour: number, quarter: number) => any[];
+}> = ({ currentDate, selectedSlots, onMouseDown, onMouseEnter, onMouseUp, timeEntries, getProjectById, getTimeEntriesForSlot }) => {
   const timeSlots = [];
   for (let hour = 6; hour < 22; hour++) {
     for (let quarter = 0; quarter < 60; quarter += 15) {
@@ -496,30 +544,52 @@ const DayView: React.FC<{
             </div>
 
             {/* Time slots - 4 slots per hour = 16px total per hour (64px per hour) */}
-            {timeSlots.map(({ hour, quarter }) => (
-              <div key={`${hour}-${quarter}`} className={cn(
-                "grid grid-cols-2",
-                quarter === 0 ? "border-b border-border" : ""
-              )}>
-                <div className="px-2 py-1 text-xs font-medium border-r border-border bg-muted/30 h-4 flex items-center">
-                  {quarter === 0 ? formatTime(hour, quarter) : ''}
+            {timeSlots.map(({ hour, quarter }) => {
+              const slotTimeEntries = getTimeEntriesForSlot(currentDate, hour, quarter);
+              const hasTimeEntry = slotTimeEntries.length > 0;
+              const timeEntry = slotTimeEntries[0]; // Use first time entry if multiple
+              const project = timeEntry ? getProjectById(timeEntry.project_id || timeEntry.projectId) : null;
+              
+              return (
+                <div key={`${hour}-${quarter}`} className={cn(
+                  "grid grid-cols-2",
+                  quarter === 0 ? "border-b border-border" : ""
+                )}>
+                  <div className="px-2 py-1 text-xs font-medium border-r border-border bg-muted/30 h-4 flex items-center">
+                    {quarter === 0 ? formatTime(hour, quarter) : ''}
+                  </div>
+                  <div
+                    className={cn(
+                      'relative',
+                      quarter === 45 
+                        ? 'px-2 py-1 text-xs font-medium border-r border-border bg-muted/30 h-4 flex items-center cursor-pointer transition-colors select-none'
+                        : 'h-4 cursor-pointer transition-colors select-none',
+                      quarter === 0 ? 'border-t border-border' : '',
+                      isSlotSelected(hour, quarter)
+                        ? 'bg-primary/20' + (quarter === 0 ? ' border-primary' : '')
+                        : hasTimeEntry ? '' : (quarter === 45 ? '' : 'hover:bg-muted/50')
+                    )}
+                    onMouseDown={() => onMouseDown(0, hour, quarter)}
+                    onMouseEnter={() => onMouseEnter(0, hour, quarter)}
+                    onMouseUp={onMouseUp}
+                  >
+                    {hasTimeEntry && project && (
+                      <div 
+                        className="absolute inset-0 rounded-sm opacity-80 flex items-center justify-center text-xs text-white font-medium overflow-hidden"
+                        style={{ backgroundColor: project.color || '#3b82f6' }}
+                        title={`${project.name}: ${timeEntry.description || timeEntry.task || 'Time entry'}`}
+                      >
+                        {quarter === 0 && (
+                          <span className="truncate px-1">
+                            {project.name}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div
-                  className={cn(
-                    quarter === 45 
-                      ? 'px-2 py-1 text-xs font-medium border-r border-border bg-muted/30 h-4 flex items-center cursor-pointer transition-colors select-none'
-                      : 'h-4 cursor-pointer transition-colors select-none',
-                    quarter === 0 ? 'border-t border-border' : '',
-                    isSlotSelected(hour, quarter)
-                      ? 'bg-primary/20' + (quarter === 0 ? ' border-primary' : '')
-                      : quarter === 45 ? '' : 'hover:bg-muted/50'
-                  )}
-                  onMouseDown={() => onMouseDown(0, hour, quarter)}
-                  onMouseEnter={() => onMouseEnter(0, hour, quarter)}
-                  onMouseUp={onMouseUp}
-                />
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </CardContent>
@@ -535,7 +605,10 @@ const WeekView: React.FC<{
   onMouseDown: (day: number, hour: number, quarter: number) => void;
   onMouseEnter: (day: number, hour: number, quarter: number) => void;
   onMouseUp: () => void;
-}> = ({ weekDates, selectedSlots, onMouseDown, onMouseEnter, onMouseUp }) => {
+  timeEntries: any[];
+  getProjectById: (id: string) => any;
+  getTimeEntriesForSlot: (date: Date, hour: number, quarter: number) => any[];
+}> = ({ weekDates, selectedSlots, onMouseDown, onMouseEnter, onMouseUp, timeEntries, getProjectById, getTimeEntriesForSlot }) => {
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const timeSlots = [];
   for (let hour = 6; hour < 22; hour++) {
@@ -592,23 +665,45 @@ const WeekView: React.FC<{
                 <div className="px-2 py-1 text-xs font-medium border-r border-border bg-muted/30 h-4 flex items-center">
                   {quarter === 0 ? formatTime(hour, quarter) : ''}
                 </div>
-                {weekDates.map((_, dayIndex) => (
-                  <div
-                    key={`${dayIndex}-${hour}-${quarter}`}
-                    className={cn(
-                      quarter === 45 
-                        ? 'px-2 py-1 text-xs font-medium border-r border-border bg-muted/30 h-4 flex items-center cursor-pointer transition-colors select-none'
-                        : 'h-4 border-r border-border cursor-pointer transition-colors select-none',
-                      quarter === 0 ? 'border-t border-border' : '',
-                      isSlotSelected(dayIndex, hour, quarter)
-                        ? 'bg-primary/20' + (quarter === 0 ? ' border-primary' : '')
-                        : quarter === 45 ? '' : 'hover:bg-muted/50'
-                    )}
-                    onMouseDown={() => onMouseDown(dayIndex, hour, quarter)}
-                    onMouseEnter={() => onMouseEnter(dayIndex, hour, quarter)}
-                    onMouseUp={onMouseUp}
-                  />
-                ))}
+                {weekDates.map((date, dayIndex) => {
+                  const slotTimeEntries = getTimeEntriesForSlot(date, hour, quarter);
+                  const hasTimeEntry = slotTimeEntries.length > 0;
+                  const timeEntry = slotTimeEntries[0]; // Use first time entry if multiple
+                  const project = timeEntry ? getProjectById(timeEntry.project_id || timeEntry.projectId) : null;
+                  
+                  return (
+                    <div
+                      key={`${dayIndex}-${hour}-${quarter}`}
+                      className={cn(
+                        'relative',
+                        quarter === 45 
+                          ? 'px-2 py-1 text-xs font-medium border-r border-border bg-muted/30 h-4 flex items-center cursor-pointer transition-colors select-none'
+                          : 'h-4 border-r border-border cursor-pointer transition-colors select-none',
+                        quarter === 0 ? 'border-t border-border' : '',
+                        isSlotSelected(dayIndex, hour, quarter)
+                          ? 'bg-primary/20' + (quarter === 0 ? ' border-primary' : '')
+                          : hasTimeEntry ? '' : (quarter === 45 ? '' : 'hover:bg-muted/50')
+                      )}
+                      onMouseDown={() => onMouseDown(dayIndex, hour, quarter)}
+                      onMouseEnter={() => onMouseEnter(dayIndex, hour, quarter)}
+                      onMouseUp={onMouseUp}
+                    >
+                      {hasTimeEntry && project && (
+                        <div 
+                          className="absolute inset-0 rounded-sm opacity-80 flex items-center justify-center text-xs text-white font-medium overflow-hidden"
+                          style={{ backgroundColor: project.color || '#3b82f6' }}
+                          title={`${project.name}: ${timeEntry.description || timeEntry.task || 'Time entry'}`}
+                        >
+                          {quarter === 0 && (
+                            <span className="truncate px-1">
+                              {project.name}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ))}
           </div>
@@ -627,7 +722,10 @@ const MonthView: React.FC<{
   onMouseDown: (day: number, hour: number, quarter: number) => void;
   onMouseEnter: (day: number, hour: number, quarter: number) => void;
   onMouseUp: () => void;
-}> = ({ monthDates, currentDate, selectedSlots, onMouseDown, onMouseEnter, onMouseUp }) => {
+  timeEntries: any[];
+  getProjectById: (id: string) => any;
+  getTimeEntriesForDay: (date: Date) => any[];
+}> = ({ monthDates, currentDate, selectedSlots, onMouseDown, onMouseEnter, onMouseUp, timeEntries, getProjectById, getTimeEntriesForDay }) => {
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const today = new Date();
   const currentMonth = currentDate.getMonth();
@@ -665,12 +763,24 @@ const MonthView: React.FC<{
             const isToday = date.toDateString() === today.toDateString();
             const isCurrentMonth = date.getMonth() === currentMonth;
             const isSelected = isDateSelected(index);
+            const dayTimeEntries = getTimeEntriesForDay(date);
+            const hasTimeEntries = dayTimeEntries.length > 0;
+            
+            // Get unique projects for this day
+            const dayProjects = dayTimeEntries.reduce((acc, entry) => {
+              const projectId = entry.project_id || entry.projectId;
+              const project = getProjectById(projectId);
+              if (project && !acc.find(p => p.id === project.id)) {
+                acc.push(project);
+              }
+              return acc;
+            }, [] as any[]);
             
             return (
               <div
                 key={index}
                 className={cn(
-                  'p-2 text-center text-sm border border-border rounded-md cursor-pointer transition-colors min-h-[40px] flex items-center justify-center',
+                  'p-2 text-center text-sm border border-border rounded-md cursor-pointer transition-colors min-h-[40px] flex flex-col items-center justify-center relative',
                   isToday && 'bg-primary text-primary-foreground font-bold',
                   !isCurrentMonth && 'text-muted-foreground bg-muted/30',
                   isSelected && 'bg-primary/20 border-primary',
@@ -678,7 +788,25 @@ const MonthView: React.FC<{
                 )}
                 onClick={() => handleDateClick(index)}
               >
-                {date.getDate()}
+                <span className="mb-1">{date.getDate()}</span>
+                {hasTimeEntries && (
+                  <div className="flex flex-wrap gap-1 justify-center">
+                    {dayProjects.slice(0, 3).map((project, pIndex) => (
+                      <div
+                        key={pIndex}
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: project.color || '#3b82f6' }}
+                        title={project.name}
+                      />
+                    ))}
+                    {dayProjects.length > 3 && (
+                      <div 
+                        className="w-2 h-2 rounded-full bg-gray-400"
+                        title={`+${dayProjects.length - 3} more projects`}
+                      />
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

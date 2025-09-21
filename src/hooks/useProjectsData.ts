@@ -248,6 +248,15 @@ export const useProjectsData = () => {
 
       console.log('➕ Creating project:', name, 'for client:', clientId)
       
+      // Get the current authenticated user
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError || !user) {
+        console.error('❌ User not authenticated:', authError)
+        setError('User not authenticated')
+        return null
+      }
+
       const { data, error } = await supabase
         .from('projects')
         .insert([{
@@ -255,7 +264,8 @@ export const useProjectsData = () => {
           color,
           client_id: clientId,
           status: 'active',
-          is_archived: false
+          is_archived: false,
+          created_by: user.id // Set the creator
         }])
         .select('*')
         .single()

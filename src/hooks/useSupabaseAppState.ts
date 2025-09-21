@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Project, TimeEntry, ProjectColor, Client } from '../types'
 import { clientService, projectService, timeEntryService } from '../services/supabaseService'
+import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 
 // This hook provides the same interface as useAppState but uses Supabase
@@ -47,10 +48,65 @@ export const useSupabaseAppState = () => {
         setClients(clientsData || [])
       }
 
-      // Load projects - TEMPORARILY DISABLED due to 500 error with complex JOIN
-      console.log('📁 Loading projects... (DISABLED - using empty array)')
-      console.log('⚠️ Projects loading disabled in useSupabaseAppState due to 500 error')
-      setProjects([]) // Use empty array for now
+      // Load projects - FIXED: Using simple query without complex JOIN
+      console.log('📁 Loading projects...')
+      try {
+        // Load clients first
+        const { data: clientsForProjects, error: clientsForProjectsError } = await supabase
+          .from('clients')
+          .select('*')
+          .order('name')
+
+        if (clientsForProjectsError) {
+          console.error('❌ Error loading clients for projects:', clientsForProjectsError)
+        }
+
+        // Load projects without JOIN
+        const { data: rawProjectsData, error: rawProjectsError } = await supabase
+          .from('projects')
+          .select('*')
+          .order('created_at', { ascending: false })
+
+        if (rawProjectsError) {
+          console.error('❌ Error loading projects:', rawProjectsError)
+          setError(`Failed to load projects: ${rawProjectsError.message || rawProjectsError}`)
+        } else {
+          console.log('✅ Projects loaded:', rawProjectsData?.length || 0, 'records')
+          
+          // Transform the data and match with clients
+          const transformedProjects = (rawProjectsData || []).map((project: any) => {
+            // Find the client for this project
+            const client = clientsForProjects?.find(c => c.id === project.client_id)
+            const clientName = client?.name || 'Unknown Client'
+
+            return {
+              id: project.id,
+              name: project.name,
+              description: project.description,
+              color: project.color || '#3b82f6',
+              client_id: project.client_id,
+              client_name: clientName,
+              status: project.status || 'active',
+              is_archived: project.is_archived || false,
+              created_by: project.created_by,
+              created_at: project.created_at,
+              updated_at: project.updated_at,
+              // Legacy compatibility
+              clientId: project.client_id,
+              clientName: clientName,
+              archived: project.is_archived || false,
+              createdAt: project.created_at,
+              updatedAt: project.updated_at
+            }
+          })
+
+          setProjects(transformedProjects)
+        }
+      } catch (err) {
+        console.error('💥 Error loading projects:', err)
+        setError('Failed to load projects')
+        setProjects([]) // Fallback to empty array
+      }
 
       // Load time entries
       console.log('⏰ Loading time entries...')
