@@ -47,18 +47,10 @@ export const useSupabaseAppState = () => {
         setClients(clientsData || [])
       }
 
-      // Load projects
-      console.log('📁 Loading projects...')
-      const { data: projectsData, error: projectsError } = await projectService.getAll()
-      
-      if (projectsError) {
-        console.error('❌ Error loading projects:', projectsError)
-        setError(`Failed to load projects: ${projectsError.message || projectsError}`)
-        // Continue loading other data even if projects fail
-      } else {
-        console.log('✅ Projects loaded:', projectsData?.length || 0, 'records')
-        setProjects(projectsData || [])
-      }
+      // Load projects - TEMPORARILY DISABLED due to 500 error with complex JOIN
+      console.log('📁 Loading projects... (DISABLED - using empty array)')
+      console.log('⚠️ Projects loading disabled in useSupabaseAppState due to 500 error')
+      setProjects([]) // Use empty array for now
 
       // Load time entries
       console.log('⏰ Loading time entries...')
