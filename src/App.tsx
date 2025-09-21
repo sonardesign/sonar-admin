@@ -10,15 +10,17 @@ import { Reports } from './pages/Reports'
 import { Loader2 } from 'lucide-react'
 
 function App() {
-  const { user, loading } = useAuth()
+  const { user, loading, initialized } = useAuth()
 
-  // Show loading spinner while checking authentication
-  if (loading) {
+  // Show loading spinner while initializing authentication
+  if (!initialized || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-muted-foreground">
+            {!initialized ? 'Initializing authentication...' : 'Loading...'}
+          </p>
         </div>
       </div>
     )

@@ -19,12 +19,15 @@ if (!supabaseAnonKey || supabaseAnonKey === 'your_supabase_anon_key_here') {
   console.error('❌ VITE_SUPABASE_ANON_KEY is not set or invalid')
 }
 
-// Create Supabase client with simple in-memory session storage
+// Create Supabase client with persistent session storage
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
-    persistSession: false, // In-memory only
+    persistSession: true, // Enable persistent sessions
     detectSessionInUrl: true,
+    storage: window.localStorage, // Use localStorage for session persistence
+    storageKey: 'supabase.auth.token', // Custom storage key
+    flowType: 'pkce', // Use PKCE flow for better security
   }
 })
 
