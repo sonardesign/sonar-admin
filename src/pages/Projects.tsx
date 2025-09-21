@@ -8,19 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { Plus, Edit2, Archive, Trash2, Palette, Users } from 'lucide-react';
 import { useProjectsData } from '../hooks/useProjectsData';
+import { useCustomColors } from '../hooks/useCustomColors';
+import { ColorPresetSelector } from '../components/ui/color-preset-selector';
+import { SimpleColorPicker } from '../components/ui/simple-color-picker';
 import { Project, ProjectColor, Client } from '../types';
 import { Page } from '../components/Page';
 
-const projectColors: ProjectColor[] = [
-  '#ef4444', // red
-  '#f97316', // orange
-  '#eab308', // yellow
-  '#22c55e', // green
-  '#3b82f6', // blue
-  '#8b5cf6', // violet
-  '#ec4899', // pink
-  '#6b7280', // gray
-];
 
 export const Projects: React.FC = () => {
   const { 
@@ -39,6 +32,8 @@ export const Projects: React.FC = () => {
     clearError,
     refresh 
   } = useProjectsData();
+  
+  const { allColors, addCustomColor } = useCustomColors();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isClientCreateOpen, setIsClientCreateOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -50,6 +45,8 @@ export const Projects: React.FC = () => {
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [selectedColor, setSelectedColor] = useState<ProjectColor>('#3b82f6');
   const [showArchived, setShowArchived] = useState(false);
+  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+  const [tempColor, setTempColor] = useState<string>('#3b82f6');
 
   const handleCreateProject = () => {
     if (newProjectName.trim() && selectedClientId) {
@@ -138,6 +135,22 @@ export const Projects: React.FC = () => {
     setNewProjectName(project.name);
     setSelectedClientId(project.client_id || project.clientId || '');
     setSelectedColor(project.color as ProjectColor);
+  };
+
+  const handleAddNewColor = () => {
+    setTempColor(selectedColor);
+    setIsColorPickerOpen(true);
+  };
+
+  const handleColorPickerSave = () => {
+    setSelectedColor(tempColor as ProjectColor);
+    addCustomColor(tempColor);
+    setIsColorPickerOpen(false);
+  };
+
+  const handleColorPickerCancel = () => {
+    setTempColor(selectedColor);
+    setIsColorPickerOpen(false);
   };
 
   const filteredProjects = showArchived 
@@ -312,21 +325,12 @@ export const Projects: React.FC = () => {
                     placeholder="Enter project name..."
                   />
                 </div>
-                <div>
-                  <Label>Project Color</Label>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {projectColors.map((color) => (
-                      <button
-                        key={color}
-                        className={`w-8 h-8 rounded-full border-2 ${
-                          selectedColor === color ? 'border-foreground' : 'border-border'
-                        }`}
-                        style={{ backgroundColor: color }}
-                        onClick={() => setSelectedColor(color)}
-                      />
-                    ))}
-                  </div>
-                </div>
+                <ColorPresetSelector
+                  selectedColor={selectedColor}
+                  presetColors={allColors}
+                  onColorSelect={(color) => setSelectedColor(color as ProjectColor)}
+                  onAddNewColor={handleAddNewColor}
+                />
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
                     Cancel
@@ -562,21 +566,12 @@ export const Projects: React.FC = () => {
                 placeholder="Enter project name..."
               />
             </div>
-            <div>
-              <Label>Project Color</Label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {projectColors.map((color) => (
-                  <button
-                    key={color}
-                    className={`w-8 h-8 rounded-full border-2 ${
-                      selectedColor === color ? 'border-foreground' : 'border-border'
-                    }`}
-                    style={{ backgroundColor: color }}
-                    onClick={() => setSelectedColor(color)}
-                  />
-                ))}
-              </div>
-            </div>
+            <ColorPresetSelector
+              selectedColor={selectedColor}
+              presetColors={allColors}
+              onColorSelect={(color) => setSelectedColor(color as ProjectColor)}
+              onAddNewColor={handleAddNewColor}
+            />
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setEditingProject(null)}>
                 Cancel
@@ -723,6 +718,18 @@ export const Projects: React.FC = () => {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Custom Color Picker Modal */}
+      <Dialog open={isColorPickerOpen} onOpenChange={setIsColorPickerOpen}>
+        <DialogContent className="max-w-md">
+          <SimpleColorPicker
+            value={tempColor}
+            onChange={setTempColor}
+            onSave={handleColorPickerSave}
+            onCancel={handleColorPickerCancel}
+          />
         </DialogContent>
       </Dialog>
     </Page>
