@@ -4,6 +4,13 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ethrtamtoioydchylepo.supabase.co'
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV0aHJ0YW10b2lveWRjaHlsZXBvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzODcxMjUsImV4cCI6MjA3Mzk2MzEyNX0.SgLY6S5eGOgqZU9QXu55Fzsla-EHTDV0VWcv4dKYKdA'
 
+// Debug environment variables
+console.log('🔧 Supabase config debug:')
+console.log('Environment VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL)
+console.log('Environment VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Set' : 'Not set')
+console.log('Final supabaseUrl:', supabaseUrl)
+console.log('Final supabaseAnonKey:', supabaseAnonKey ? 'Set' : 'Not set')
+
 // Validate configuration
 if (!supabaseUrl || supabaseUrl === 'your_supabase_project_url_here') {
   console.error('❌ VITE_SUPABASE_URL is not set or invalid')
