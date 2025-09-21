@@ -59,7 +59,16 @@ const getDatePresets = (): DatePreset[] => {
 }
 
 export const Reports: React.FC = () => {
-  const { projects, timeEntries, loading, error } = useSupabaseAppState()
+  const { projects, timeEntries, clients, users, loading, error } = useSupabaseAppState()
+  
+  console.log('📊 Reports page data:', { 
+    projects: projects.length, 
+    timeEntries: timeEntries.length,
+    clients: clients.length,
+    users: users.length,
+    loading,
+    error 
+  });
   const [selectedClient, setSelectedClient] = useState<string>('all')
   const [selectedProject, setSelectedProject] = useState<string>('all')
   const [selectedColleague, setSelectedColleague] = useState<string>('all')
@@ -73,21 +82,6 @@ export const Reports: React.FC = () => {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
 
   const datePresets = getDatePresets()
-
-  // Mock data for clients and colleagues
-  const clients = [
-    { id: '1', name: 'Acme Corporation' },
-    { id: '2', name: 'TechStart Inc.' },
-    { id: '3', name: 'Global Solutions' },
-    { id: '4', name: 'Innovation Labs' }
-  ]
-
-  const colleagues = [
-    { id: '1', name: 'John Smith' },
-    { id: '2', name: 'Sarah Johnson' },
-    { id: '3', name: 'Mike Wilson' },
-    { id: '4', name: 'Emma Davis' }
-  ]
 
   const handleDatePreset = (preset: DatePreset) => {
     setDateRange(preset.range)
@@ -113,11 +107,30 @@ export const Reports: React.FC = () => {
 
   // Filter time entries based on selected filters
   const filteredEntries = timeEntries.filter(entry => {
-    const entryDate = new Date(entry.date)
+    const entryDate = new Date(entry.date || entry.start_time || entry.startTime!)
     const isInDateRange = entryDate >= dateRange.from && entryDate <= dateRange.to
-    const matchesProject = selectedProject === 'all' || !selectedProject || entry.projectId === selectedProject
     
-    return isInDateRange && matchesProject
+    // Filter by project
+    const matchesProject = selectedProject === 'all' || !selectedProject || 
+      entry.projectId === selectedProject || entry.project_id === selectedProject
+    
+    // Filter by client (check if project belongs to selected client)
+    let matchesClient = selectedClient === 'all' || !selectedClient
+    if (!matchesClient) {
+      const project = projects.find(p => 
+        p.id === (entry.projectId || entry.project_id)
+      )
+      matchesClient = project && (
+        project.client_id === selectedClient || 
+        project.clientId === selectedClient
+      )
+    }
+    
+    // Filter by colleague/user
+    const matchesColleague = selectedColleague === 'all' || !selectedColleague ||
+      entry.user_id === selectedColleague
+    
+    return isInDateRange && matchesProject && matchesClient && matchesColleague
   })
 
   // Calculate totals
@@ -190,7 +203,7 @@ export const Reports: React.FC = () => {
               <div className="flex flex-col space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Client</label>
                 <Select value={selectedClient} onValueChange={setSelectedClient}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-[220px]">
                     <Users className="h-4 w-4 mr-2" />
                     <SelectValue placeholder="Select client" />
                   </SelectTrigger>
@@ -209,7 +222,7 @@ export const Reports: React.FC = () => {
               <div className="flex flex-col space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Project</label>
                 <Select value={selectedProject} onValueChange={setSelectedProject}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-[220px]">
                     <FolderOpen className="h-4 w-4 mr-2" />
                     <SelectValue placeholder="Select project" />
                   </SelectTrigger>
@@ -240,9 +253,9 @@ export const Reports: React.FC = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All colleagues</SelectItem>
-                    {colleagues.map((colleague) => (
-                      <SelectItem key={colleague.id} value={colleague.id}>
-                        {colleague.name}
+                    {users.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.full_name}
                       </SelectItem>
                     ))}
                   </SelectContent>

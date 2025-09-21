@@ -10,6 +10,7 @@ export const useSupabaseAppState = () => {
   const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([])
+  const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -118,6 +119,26 @@ export const useSupabaseAppState = () => {
       } else {
         console.log('✅ Time entries loaded:', timeEntriesData?.length || 0, 'records')
         setTimeEntries(timeEntriesData || [])
+      }
+
+      // Load users/profiles
+      console.log('👥 Loading users...')
+      try {
+        const { data: usersData, error: usersError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, role, is_active')
+          .eq('is_active', true)
+          .order('full_name')
+
+        if (usersError) {
+          console.error('❌ Error loading users:', usersError)
+        } else {
+          console.log('✅ Users loaded:', usersData?.length || 0, 'records')
+          setUsers(usersData || [])
+        }
+      } catch (err) {
+        console.error('💥 Error loading users:', err)
+        setUsers([]) // Fallback to empty array
       }
       
       console.log('🎉 Data loading completed')
@@ -378,6 +399,7 @@ export const useSupabaseAppState = () => {
     clients,
     projects,
     timeEntries,
+    users,
     loading,
     error,
     
