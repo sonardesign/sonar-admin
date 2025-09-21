@@ -8,6 +8,8 @@ import { Calendar } from './pages/Calendar'
 import { Projects } from './pages/Projects'
 import { ProjectDetails } from './pages/ProjectDetails'
 import { Reports } from './pages/Reports'
+import { Summary } from './pages/Summary'
+import { MonthlyDetail } from './pages/MonthlyDetail'
 import { Loader2 } from 'lucide-react'
 
 function App() {
@@ -43,6 +45,8 @@ function App() {
                 <Route path="/projects" element={<Projects />} />
                 <Route path="/projects/:projectName" element={<ProjectDetails />} />
                 <Route path="/reports" element={<Reports />} />
+                <Route path="/summary" element={<Summary />} />
+                <Route path="/summary/:monthKey" element={<MonthlyDetail />} />
         </Routes>
       </Layout>
     </Router>

@@ -8,6 +8,7 @@ import {
   FolderOpen,
   Timer,
   BarChart3,
+  PieChart,
   Moon,
   LogOut,
   ChevronUp
@@ -27,6 +28,7 @@ const navigation = [
   { name: 'Calendar', href: '/calendar', icon: Calendar },
     { name: 'Projects', href: '/projects', icon: FolderOpen },
     { name: 'Reports', href: '/reports', icon: BarChart3 },
+    { name: 'Summary', href: '/summary', icon: PieChart },
 ];
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
