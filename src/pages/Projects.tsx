@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -16,6 +17,7 @@ import { Page } from '../components/Page';
 
 
 export const Projects: React.FC = () => {
+  const navigate = useNavigate();
   const { 
     clients, 
     projects, 
@@ -455,7 +457,12 @@ export const Projects: React.FC = () => {
                               style={{ backgroundColor: project.color }}
                             />
                             <div>
-                              <h3 className="font-medium text-foreground">{project.name}</h3>
+                              <button
+                                onClick={() => navigate(`/projects/${encodeURIComponent(project.name)}`)}
+                                className="font-medium text-foreground hover:text-primary transition-colors text-left"
+                              >
+                                <h3 className="font-medium">{project.name}</h3>
+                              </button>
                               <p className="text-sm text-muted-foreground">
                                 Created {new Date(project.created_at || project.createdAt || Date.now()).toLocaleDateString('en-US', {
                                   year: 'numeric',

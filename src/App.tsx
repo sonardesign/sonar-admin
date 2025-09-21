@@ -6,6 +6,7 @@ import { Dashboard } from './pages/Dashboard'
 import { TimeTracking } from './pages/TimeTracking'
 import { Calendar } from './pages/Calendar'
 import { Projects } from './pages/Projects'
+import { ProjectDetails } from './pages/ProjectDetails'
 import { Reports } from './pages/Reports'
 import { Loader2 } from 'lucide-react'
 
@@ -36,11 +37,12 @@ function App() {
     <Router>
       <Layout>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/time-tracking" element={<TimeTracking />} />
-          <Route path="/calendar" element={<Calendar />} />
-          <Route path="/projects" element={<Projects />} />
-          <Route path="/reports" element={<Reports />} />
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/time-tracking" element={<TimeTracking />} />
+                <Route path="/calendar" element={<Calendar />} />
+                <Route path="/projects" element={<Projects />} />
+                <Route path="/projects/:projectName" element={<ProjectDetails />} />
+                <Route path="/reports" element={<Reports />} />
         </Routes>
       </Layout>
     </Router>
