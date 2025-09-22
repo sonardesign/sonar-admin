@@ -17,6 +17,7 @@ import { Button } from './ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { useAuth } from '../hooks/useAuth';
+import { useSupabaseAppState } from '../hooks/useSupabaseAppState';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -34,9 +35,12 @@ const navigation = [
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const { user, signOut } = useAuth();
+  const { users } = useSupabaseAppState();
   
-  // Get user info from Supabase user object
-  const profileName = user?.user_metadata?.full_name || user?.email || 'User';
+  // Get user profile from Supabase profiles table
+  const userProfile = users.find(u => u.id === user?.id);
+  const profileName = userProfile?.full_name || user?.user_metadata?.full_name || user?.email || 'User';
+  const userRole = userProfile?.role || 'user';
   
   // Generate proper initials from the full name
   const getInitials = (name: string) => {
@@ -120,7 +124,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                     </Avatar>
                         <div className="text-left">
                           <p className="text-sm font-medium text-foreground">{profileName}</p>
-                          <p className="text-xs text-muted-foreground">{user?.email}</p>
+                          <p className="text-xs text-muted-foreground capitalize">{userRole}</p>
                         </div>
                   </div>
                   <ChevronUp className="h-4 w-4 text-muted-foreground" />
