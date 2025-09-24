@@ -4,7 +4,7 @@ import { cn } from '../lib/utils';
 import { 
   Home, 
   Clock, 
-  Calendar, 
+  CalendarDays,
   FolderOpen,
   Timer,
   BarChart3,
@@ -26,7 +26,7 @@ interface LayoutProps {
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
   { name: 'Time Tracking', href: '/time-tracking', icon: Timer },
-  { name: 'Calendar', href: '/calendar', icon: Calendar },
+  { name: 'Timetable', href: '/timetable', icon: CalendarDays },
     { name: 'Projects', href: '/projects', icon: FolderOpen },
     { name: 'Reports', href: '/reports', icon: BarChart3 },
     { name: 'Summary', href: '/summary', icon: PieChart },

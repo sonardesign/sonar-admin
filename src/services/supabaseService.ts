@@ -328,7 +328,7 @@ export const timeEntryService = {
   },
 
   // Create time entry
-  async create(entry: Omit<TimeEntry, 'id' | 'created_at' | 'updated_at'>): Promise<{ data: TimeEntry | null; error: Error | null }> {
+  async create(entry: Omit<TimeEntry, 'id' | 'created_at' | 'updated_at' | 'user_id'>): Promise<{ data: TimeEntry | null; error: Error | null }> {
     try {
       // Get the current authenticated user
       const { data: { user }, error: authError } = await supabase.auth.getUser()

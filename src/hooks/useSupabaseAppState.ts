@@ -330,7 +330,7 @@ export const useSupabaseAppState = () => {
   }, [projects])
 
   // Time entry management
-  const createTimeEntry = useCallback(async (entry: Omit<TimeEntry, 'id' | 'created_at' | 'updated_at'>): Promise<TimeEntry | null> => {
+  const createTimeEntry = useCallback(async (entry: Omit<TimeEntry, 'id' | 'created_at' | 'updated_at' | 'user_id'>): Promise<TimeEntry | null> => {
     try {
       const { data, error } = await timeEntryService.create(entry)
 

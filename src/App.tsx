@@ -4,7 +4,7 @@ import { Layout } from './components/Layout'
 import { AuthPage } from './components/auth/AuthPage'
 import { Dashboard } from './pages/Dashboard'
 import { TimeTracking } from './pages/TimeTracking'
-import { Calendar } from './pages/Calendar'
+import { Timetable } from './pages/Timetable'
 import { Projects } from './pages/Projects'
 import { ProjectDetails } from './pages/ProjectDetails'
 import { Reports } from './pages/Reports'
@@ -41,7 +41,7 @@ function App() {
         <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/time-tracking" element={<TimeTracking />} />
-                <Route path="/calendar" element={<Calendar />} />
+                <Route path="/timetable" element={<Timetable />} />
                 <Route path="/projects" element={<Projects />} />
                 <Route path="/projects/:projectName" element={<ProjectDetails />} />
                 <Route path="/reports" element={<Reports />} />

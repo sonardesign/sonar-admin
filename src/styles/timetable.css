@@ -1,0 +1,118 @@
+/* Custom styles for react-big-calendar */
+.rbc-calendar {
+  font-family: inherit;
+}
+
+.rbc-header {
+  font-weight: 600;
+  padding: 8px 6px;
+  background-color: hsl(var(--muted));
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.rbc-time-view{
+  min-height: 0;
+}
+
+.rbc-time-view .rbc-time-gutter {
+  background-color: hsl(var(--background));
+  border-right: 1px solid hsl(var(--border));
+}
+
+.rbc-time-slot {
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.rbc-timeslot-group {
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.rbc-day-slot {
+  border-left: 1px solid hsl(var(--border));
+}
+
+.rbc-event {
+  border: none !important;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rbc-event:hover {
+  opacity: 0.8;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.rbc-event.rbc-selected {
+  box-shadow: 0 0 0 2px hsl(var(--primary));
+}
+
+.rbc-event-content {
+  font-weight: 500;
+  color: white;
+}
+
+.rbc-slot-selection {
+  background-color: hsl(var(--primary) / 0.2);
+  border: 2px dashed hsl(var(--primary));
+}
+
+.rbc-time-header {
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.rbc-time-content {
+  border: 0;
+}
+
+.rbc-current-time-indicator {
+  background-color: hsl(var(--destructive));
+  height: 2px;
+  z-index: 10;
+}
+
+/* Drag and drop styles */
+.rbc-addons-dnd .rbc-addons-dnd-drag-preview {
+  opacity: 0.8;
+  transform: none; /* Remove rotation during drag */
+}
+
+.rbc-addons-dnd .rbc-addons-dnd-over {
+  background-color: hsl(var(--primary) / 0.1);
+}
+
+/* Custom time gutter formatting */
+.rbc-time-slot .rbc-label {
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Today highlight */
+.rbc-today {
+  background-color: hsl(var(--accent) / 0.1);
+}
+
+/* Weekend styling */
+.rbc-off-range-bg {
+  background-color: hsl(var(--muted) / 0.3);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .rbc-time-view .rbc-time-gutter {
+    width: 50px;
+  }
+  
+  .rbc-time-view .rbc-time-gutter .rbc-label {
+    font-size: 10px;
+  }
+  
+  .rbc-event {
+    font-size: 11px;
+    padding: 1px 4px;
+  }
+}
