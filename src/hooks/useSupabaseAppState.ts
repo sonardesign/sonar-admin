@@ -3,6 +3,7 @@ import { Project, TimeEntry, ProjectColor, Client } from '../types'
 import { clientService, projectService, timeEntryService } from '../services/supabaseService'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
+import { notifications } from '../lib/notifications'
 
 // This hook provides the same interface as useAppState but uses Supabase
 export const useSupabaseAppState = () => {
@@ -175,6 +176,7 @@ export const useSupabaseAppState = () => {
     } catch (err) {
       console.error('Error creating client:', err)
       setError('Failed to create client')
+      notifications.client.createError(err instanceof Error ? err.message : 'Unknown error')
       return null
     }
   }, [])
@@ -195,6 +197,7 @@ export const useSupabaseAppState = () => {
     } catch (err) {
       console.error('Error updating client:', err)
       setError('Failed to update client')
+      notifications.client.updateError(err instanceof Error ? err.message : 'Unknown error')
     }
   }, [])
 
@@ -219,6 +222,7 @@ export const useSupabaseAppState = () => {
     } catch (err) {
       console.error('Error deleting client:', err)
       setError('Failed to delete client')
+      notifications.client.deleteError(err instanceof Error ? err.message : 'Unknown error')
     }
   }, [projects])
 
@@ -261,6 +265,7 @@ export const useSupabaseAppState = () => {
     } catch (err) {
       console.error('Error creating project:', err)
       setError('Failed to create project')
+      notifications.project.createError(err instanceof Error ? err.message : 'Unknown error')
       return null
     }
   }, [])
@@ -281,6 +286,7 @@ export const useSupabaseAppState = () => {
     } catch (err) {
       console.error('Error updating project:', err)
       setError('Failed to update project')
+      notifications.project.updateError(err instanceof Error ? err.message : 'Unknown error')
     }
   }, [])
 
@@ -300,6 +306,7 @@ export const useSupabaseAppState = () => {
     } catch (err) {
       console.error('Error archiving project:', err)
       setError('Failed to archive project')
+      notifications.project.updateError(err instanceof Error ? err.message : 'Unknown error')
     }
   }, [])
 
@@ -318,6 +325,7 @@ export const useSupabaseAppState = () => {
     } catch (err) {
       console.error('Error deleting project:', err)
       setError('Failed to delete project')
+      notifications.project.deleteError(err instanceof Error ? err.message : 'Unknown error')
     }
   }, [])
 
@@ -349,6 +357,7 @@ export const useSupabaseAppState = () => {
     } catch (err) {
       console.error('Error creating time entry:', err)
       setError('Failed to create time entry')
+      notifications.timeEntry.createError(err instanceof Error ? err.message : 'Unknown error')
       return null
     }
   }, [])
@@ -369,6 +378,7 @@ export const useSupabaseAppState = () => {
     } catch (err) {
       console.error('Error updating time entry:', err)
       setError('Failed to update time entry')
+      notifications.timeEntry.updateError(err instanceof Error ? err.message : 'Unknown error')
     }
   }, [])
 
@@ -386,6 +396,7 @@ export const useSupabaseAppState = () => {
     } catch (err) {
       console.error('Error deleting time entry:', err)
       setError('Failed to delete time entry')
+      notifications.timeEntry.deleteError(err instanceof Error ? err.message : 'Unknown error')
     }
   }, [])
 

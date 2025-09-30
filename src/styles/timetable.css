@@ -12,6 +12,7 @@
 
 .rbc-time-view{
   min-height: 0;
+  border: none;
 }
 
 .rbc-time-view .rbc-time-gutter {
@@ -20,11 +21,11 @@
 }
 
 .rbc-time-slot {
-  border-bottom: 1px solid hsl(var(--border));
+  border-bottom: none; /* Hide quarter-hour borders */
 }
 
 .rbc-timeslot-group {
-  border-bottom: 1px solid hsl(var(--border));
+  border-bottom: 1px solid hsl(var(--border)); /* Show only hour borders */
 }
 
 .rbc-day-slot {

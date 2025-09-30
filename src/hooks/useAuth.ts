@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { User, Session, AuthError } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { notifications } from '../lib/notifications'
 
 interface UseAuthReturn {
   user: User | null
@@ -117,8 +118,10 @@ export const useAuth = (): UseAuthReturn => {
       
       if (error) {
         console.error('❌ Sign in error:', error.message)
+        notifications.createError('Authentication', error.message)
       } else {
         console.log('✅ Sign in successful for:', data.user?.email)
+        notifications.createSuccess('Authentication', 'Successfully signed in')
         // Session will be set by onAuthStateChange
       }
       
@@ -175,8 +178,10 @@ export const useAuth = (): UseAuthReturn => {
       
       if (error) {
         console.error('❌ Sign out error:', error.message)
+        notifications.createError('Authentication', error.message)
       } else {
         console.log('✅ Sign out successful - session cleared')
+        notifications.createSuccess('Authentication', 'Successfully signed out')
         // State will be cleared by onAuthStateChange
       }
       

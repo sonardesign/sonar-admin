@@ -11,6 +11,8 @@ import { Reports } from './pages/Reports'
 import { Summary } from './pages/Summary'
 import { MonthlyDetail } from './pages/MonthlyDetail'
 import { Loader2 } from 'lucide-react'
+import { Toaster } from 'sonner'
+import './styles/globals.css'
 
 function App() {
   const { user, loading, initialized } = useAuth()
@@ -49,6 +51,7 @@ function App() {
                 <Route path="/summary/:monthKey" element={<MonthlyDetail />} />
         </Routes>
       </Layout>
+      <Toaster position="bottom-right" />
     </Router>
   )
 }

@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Calendar, momentLocalizer, Views, Event as RBCEvent } from 'react-big-calendar';
-import withDragAndDrop, { withDragAndDropProps } from 'react-big-calendar/lib/addons/dragAndDrop';
+import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import moment from 'moment';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
@@ -15,6 +15,7 @@ import { Calendar as CalendarComponent } from '../components/ui/calendar';
 import { Page } from '../components/Page';
 import { useSupabaseAppState } from '../hooks/useSupabaseAppState';
 import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { notifications } from '../lib/notifications';
 
 // Import styles
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
@@ -24,8 +25,8 @@ import '../styles/timetable.css';
 // Setup the localizer
 const localizer = momentLocalizer(moment);
 
-// Create the DragAndDrop Calendar
-const DragAndDropCalendar = withDragAndDrop(Calendar);
+// Create the DragAndDrop Calendar with proper typing
+const DragAndDropCalendar = withDragAndDrop<TimeEntry>(Calendar);
 
 // Custom Event interface extending RBCEvent
 interface TimeEntry extends RBCEvent {
@@ -47,7 +48,7 @@ export const Timetable: React.FC = () => {
   
   // State for calendar
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState<string>(Views.WEEK);
+  const [view, setView] = useState<typeof Views.WEEK | typeof Views.DAY>(Views.WEEK);
   
   // Modal state
   const [isTimeSlotModalOpen, setIsTimeSlotModalOpen] = useState(false);
@@ -115,7 +116,6 @@ export const Timetable: React.FC = () => {
 
   // Handle slot selection (for creating new time entries)
   const handleSelectSlot = useCallback(({ start, end }: { start: Date; end: Date }) => {
-    const duration = (end.getTime() - start.getTime()) / (1000 * 60); // duration in minutes
     
     setModalTimeSlot({
       startTime: start,
@@ -136,7 +136,7 @@ export const Timetable: React.FC = () => {
   }, []);
 
   // Handle drag and drop
-  const handleEventDrop = useCallback(async ({ event, start, end }: withDragAndDropProps['onEventDrop']) => {
+  const handleEventDrop = useCallback(async ({ event, start, end }: any) => {
     const timeEntry = event as TimeEntry;
     const duration = (end.getTime() - start.getTime()) / (1000 * 60);
     
@@ -148,7 +148,7 @@ export const Timetable: React.FC = () => {
   }, [updateTimeEntry]);
 
   // Handle event resize
-  const handleEventResize = useCallback(async ({ event, start, end }: withDragAndDropProps['onEventResize']) => {
+  const handleEventResize = useCallback(async ({ event, start, end }: any) => {
     const timeEntry = event as TimeEntry;
     const duration = (end.getTime() - start.getTime()) / (1000 * 60);
     
@@ -175,12 +175,15 @@ export const Timetable: React.FC = () => {
         is_billable: true,
       });
 
+      notifications.timeEntry.createSuccess(taskDescription);
+      
       setIsTimeSlotModalOpen(false);
       setModalTimeSlot(null);
       setSelectedProjectId('');
       setTaskDescription('');
     } catch (error) {
       console.error('Error creating time entry:', error);
+      notifications.timeEntry.createError(error instanceof Error ? error.message : 'Unknown error');
     }
   };
 
@@ -194,12 +197,15 @@ export const Timetable: React.FC = () => {
         description: editDescription || undefined,
       });
 
+      notifications.timeEntry.updateSuccess(editDescription);
+
       setIsEditTimeEntryOpen(false);
       setEditingTimeEntry(null);
       setEditProjectId('');
       setEditDescription('');
     } catch (error) {
       console.error('Error updating time entry:', error);
+      notifications.timeEntry.updateError(error instanceof Error ? error.message : 'Unknown error');
     }
   };
 
@@ -209,10 +215,13 @@ export const Timetable: React.FC = () => {
 
     try {
       await deleteTimeEntry(editingTimeEntry.id);
+      notifications.timeEntry.deleteSuccess();
+      
       setIsEditTimeEntryOpen(false);
       setEditingTimeEntry(null);
     } catch (error) {
       console.error('Error deleting time entry:', error);
+      notifications.timeEntry.deleteError(error instanceof Error ? error.message : 'Unknown error');
     }
   };
 
@@ -260,7 +269,7 @@ export const Timetable: React.FC = () => {
   return (
     <DndProvider backend={HTML5Backend}>
       <Page>
-        <div className="mb-8">
+        <div className="flex flex-col h-full gap-6">
           {/* Header with Date Navigation */}
           <div className="flex justify-between items-center mb-6">
             <div>
@@ -306,41 +315,37 @@ export const Timetable: React.FC = () => {
           </div>
 
           {/* Calendar */}
-          <Card>
-            <CardContent>
-              <div style={{ height: '600px' }}>
-                <DragAndDropCalendar
-                  localizer={localizer}
-                  events={events}
-                  startAccessor="start"
-                  endAccessor="end"
-                  style={{ height: '100%' }}
-                  view={view}
-                  onView={setView}
-                  date={currentDate}
-                  onNavigate={setCurrentDate}
-                  selectable
-                  resizable
-                  onSelectSlot={handleSelectSlot}
-                  onSelectEvent={handleSelectEvent}
-                  onEventDrop={handleEventDrop}
-                  onEventResize={handleEventResize}
-                  eventPropGetter={eventStyleGetter}
-                  step={15}
-                  timeslots={4}
-                  defaultView={Views.WEEK}
-                  views={[Views.WEEK, Views.DAY]}
-                  min={new Date(0, 0, 0, 6, 0, 0)} // 6 AM
-                  max={new Date(0, 0, 0, 22, 0, 0)} // 10 PM
-                  toolbar={false} // Remove the toolbar completely
-                  formats={{
-                    timeGutterFormat: 'HH:mm',
-                    eventTimeRangeFormat: ({ start, end }) => 
-                      `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`,
-                  }}
-                />
-              </div>
-            </CardContent>
+          <Card className="flex-1 flex flex-col overflow-hidden">
+            <DragAndDropCalendar
+              localizer={localizer}
+              events={events}
+              startAccessor={(event: TimeEntry) => event.start}
+              endAccessor={(event: TimeEntry) => event.end}
+              style={{ height: '100%' }}
+              view={view}
+              onView={setView}
+              date={currentDate}
+              onNavigate={setCurrentDate}
+              selectable
+              resizable
+              onSelectSlot={handleSelectSlot}
+              onSelectEvent={handleSelectEvent}
+              onEventDrop={handleEventDrop}
+              onEventResize={handleEventResize}
+              eventPropGetter={eventStyleGetter}
+              step={15}
+              timeslots={4}
+              defaultView={Views.WEEK}
+              views={[Views.WEEK, Views.DAY]}
+              min={new Date(0, 0, 0, 6, 0, 0)} // 6 AM
+              max={new Date(0, 0, 0, 22, 0, 0)} // 10 PM
+              toolbar={false} // Remove the toolbar completely
+              formats={{
+                timeGutterFormat: 'HH:mm',
+                eventTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) => 
+                  `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`,
+              }}
+            />
           </Card>
         </div>
 
