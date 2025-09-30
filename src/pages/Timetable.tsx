@@ -4,7 +4,7 @@ import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import moment from 'moment';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { Card, CardContent } from '../components/ui/card';
+import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
@@ -40,8 +40,36 @@ interface TimeEntry extends RBCEvent {
     projectColor: string;
     description?: string;
     duration_minutes: number;
+    durationLabel: string;
   };
 }
+
+// Custom Event Component
+const CustomEvent = ({ event }: { event: TimeEntry }) => {
+  return (
+    <div style={{ 
+      height: '100%', 
+      display: 'flex', 
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      fontSize: '12px',
+      fontWeight: '600',
+      color: '#1f2937',
+      lineHeight: '1.4',
+      position: 'relative'
+    }}>
+      <div>{event.resource?.projectName}</div>
+      <div style={{ 
+        textAlign: 'right',
+        fontSize: '11px',
+        fontWeight: '500',
+        opacity: 0.8
+      }}>
+        {event.resource?.durationLabel}
+      </div>
+    </div>
+  );
+};
 
 export const Timetable: React.FC = () => {
   const { projects, timeEntries, getActiveProjects, createTimeEntry, updateTimeEntry, deleteTimeEntry, loading, error } = useSupabaseAppState();
@@ -81,17 +109,25 @@ export const Timetable: React.FC = () => {
   const events: TimeEntry[] = useMemo(() => {
     return timeEntries.map(entry => {
       const project = projects.find(p => p.id === (entry.project_id || entry.projectId));
+      const durationMinutes = entry.duration_minutes || entry.duration || 0;
+      const hours = Math.floor(durationMinutes / 60);
+      const minutes = durationMinutes % 60;
+      const durationLabel = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+      
+      const projectName = project?.name || 'Unknown Project';
+      
       return {
         id: entry.id,
-        title: project?.name || 'Unknown Project',
+        title: projectName, // Just the project name for the title
         start: new Date(entry.start_time || entry.startTime!),
         end: new Date(entry.end_time || entry.endTime!),
         resource: {
           projectId: entry.project_id || entry.projectId!,
-          projectName: project?.name || 'Unknown Project',
+          projectName: projectName,
           projectColor: project?.color || '#3b82f6',
           description: entry.description || entry.task,
-          duration_minutes: entry.duration_minutes || entry.duration || 0
+          duration_minutes: durationMinutes,
+          durationLabel: durationLabel
         }
       };
     });
@@ -99,17 +135,16 @@ export const Timetable: React.FC = () => {
 
   // Custom event style getter
   const eventStyleGetter = useCallback((event: TimeEntry) => {
-    const backgroundColor = event.resource?.projectColor || '#3b82f6';
+    const projectColor = event.resource?.projectColor || '#3b82f6';
     return {
       style: {
-        backgroundColor,
+        backgroundColor: `${projectColor}33`, // 20% opacity (hex: 33)
         borderRadius: '4px',
-        opacity: 0.9,
-        color: 'white',
-        border: '0px',
+        borderLeftWidth: '4px',
+        borderLeftStyle: 'solid',
+        borderLeftColor: projectColor,
         display: 'block',
-        fontSize: '12px',
-        fontWeight: '500'
+        paddingLeft: '6px'
       }
     };
   }, []);
@@ -333,12 +368,15 @@ export const Timetable: React.FC = () => {
               onEventDrop={handleEventDrop}
               onEventResize={handleEventResize}
               eventPropGetter={eventStyleGetter}
+              components={{
+                event: CustomEvent
+              }}
               step={15}
               timeslots={4}
               defaultView={Views.WEEK}
               views={[Views.WEEK, Views.DAY]}
-              min={new Date(0, 0, 0, 6, 0, 0)} // 6 AM
-              max={new Date(0, 0, 0, 22, 0, 0)} // 10 PM
+              min={new Date(0, 0, 0, 0, 0, 0)} // 12 AM (midnight)
+              max={new Date(0, 0, 0, 23, 59, 59)} // 11:59 PM
               toolbar={false} // Remove the toolbar completely
               formats={{
                 timeGutterFormat: 'HH:mm',

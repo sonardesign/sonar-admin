@@ -8,6 +8,7 @@
   padding: 8px 6px;
   background-color: hsl(var(--muted));
   border-bottom: 1px solid hsl(var(--border));
+  border-right: none !important;
 }
 
 .rbc-time-view{
@@ -33,13 +34,18 @@
 }
 
 .rbc-event {
-  border: none !important;
+  border-top: none !important;
+  border-right: none !important;
+  border-bottom: none !important;
   border-radius: 4px;
-  padding: 2px 6px;
+  padding: 4px 6px;
+  padding-left: 10px !important; /* Account for 4px left border + 6px padding */
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  line-height: 1.4;
+  white-space: pre-line; /* Allow line breaks */
 }
 
 .rbc-event:hover {
@@ -53,8 +59,17 @@
 }
 
 .rbc-event-content {
-  font-weight: 500;
-  color: white;
+  font-weight: 600;
+  color: #1f2937; /* Dark text color */
+  line-height: 1.4;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Hide the default event label */
+.rbc-event-label {
+  display: none;
 }
 
 .rbc-slot-selection {
@@ -64,10 +79,39 @@
 
 .rbc-time-header {
   border-bottom: 1px solid hsl(var(--border));
+  border-right: none !important;
+}
+
+.rbc-time-header-content {
+  border-left: 1px solid hsl(var(--border));
+  margin-right: 0 !important;
+  border-right: none !important;
 }
 
 .rbc-time-content {
   border: 0;
+}
+
+.rbc-time-content > .rbc-day-slot {
+  width: 100% !important;
+}
+
+/* Fix header alignment with day columns */
+.rbc-time-header > .rbc-row {
+  overflow: visible !important;
+}
+
+.rbc-time-header-gutter {
+  flex: none !important;
+}
+
+/* Ensure headers and content have same width */
+.rbc-header + .rbc-header {
+  border-left: 1px solid hsl(var(--border));
+}
+
+.rbc-time-view .rbc-time-content > * + * > * {
+  border-left: 1px solid hsl(var(--border));
 }
 
 .rbc-current-time-indicator {
@@ -100,6 +144,27 @@
 /* Weekend styling */
 .rbc-off-range-bg {
   background-color: hsl(var(--muted) / 0.3);
+}
+
+/* Working hours background (9 AM to 7 PM) */
+/* Off-work hours get a subtle gray background */
+.rbc-time-slot {
+  background-color: hsl(var(--muted) / 0.15);
+}
+
+.rbc-day-slot .rbc-time-slot:nth-child(n+37):nth-child(-n+76) {
+  /* Hours 9-19 (9 AM to 7 PM) - 4 slots per hour, starting at slot 37 (9 AM) */
+  background-color: hsl(var(--background));
+}
+
+/* Apply same to timeslot groups */
+.rbc-timeslot-group {
+  background-color: hsl(var(--muted) / 0.15);
+}
+
+.rbc-day-slot .rbc-timeslot-group:nth-child(n+10):nth-child(-n+19) {
+  /* Hours 9-19 (slots 10-19) */
+  background-color: hsl(var(--background));
 }
 
 /* Responsive adjustments */
