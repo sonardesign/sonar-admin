@@ -4,11 +4,18 @@
 }
 
 .rbc-header {
+  height: 36px;
   font-weight: 600;
   padding: 8px 6px;
   background-color: hsl(var(--muted));
   border-bottom: 1px solid hsl(var(--border));
   border-right: none !important;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.rbc-header:hover {
+  background-color: hsl(var(--muted) / 0.7);
 }
 
 .rbc-time-view{
@@ -115,7 +122,7 @@
 }
 
 .rbc-current-time-indicator {
-  background-color: hsl(var(--destructive));
+  background-color: hsl(var(--primary));
   height: 2px;
   z-index: 10;
 }
@@ -139,6 +146,12 @@
 /* Today highlight */
 .rbc-today {
   background-color: hsl(var(--accent) / 0.1);
+}
+
+/* Today header text color */
+.rbc-header.rbc-today {
+  color: hsl(var(--primary));
+  font-weight: 700;
 }
 
 /* Weekend styling */
@@ -165,6 +178,11 @@
 .rbc-day-slot .rbc-timeslot-group:nth-child(n+10):nth-child(-n+19) {
   /* Hours 9-19 (slots 10-19) */
   background-color: hsl(var(--background));
+}
+
+/* Back to Week button positioning */
+.rbc-time-view {
+  position: relative;
 }
 
 /* Responsive adjustments */

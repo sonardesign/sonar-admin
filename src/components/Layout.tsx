@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { 
@@ -12,7 +12,8 @@ import {
   Moon,
   LogOut,
   ChevronUp,
-  Settings
+  Settings,
+  Users
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
@@ -23,7 +24,9 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useAuth } from '../hooks/useAuth';
 import { useSupabaseAppState } from '../hooks/useSupabaseAppState';
+import { usePermissions } from '../hooks/usePermissions';
 import { notifications } from '../lib/notifications';
+import { isRouteAllowed } from '../lib/permissions';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -34,14 +37,17 @@ const navigation = [
   { name: 'Time Tracking', href: '/time-tracking', icon: Timer },
   { name: 'Timetable', href: '/timetable', icon: CalendarDays },
     { name: 'Projects', href: '/projects', icon: FolderOpen },
+    { name: 'Workload', href: '/workload', icon: Users },
     { name: 'Reports', href: '/reports', icon: BarChart3 },
     { name: 'Summary', href: '/summary', icon: PieChart },
+    { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const { user, signOut } = useAuth();
   const { users } = useSupabaseAppState();
+  const { userRole } = usePermissions();
   
   // Settings modal state
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -55,7 +61,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   // Get user profile from Supabase profiles table
   const userProfile = users.find(u => u.id === user?.id);
   const profileName = userProfile?.full_name || user?.user_metadata?.full_name || user?.email || 'User';
-  const userRole = userProfile?.role || 'user';
+  
+  // Filter navigation items based on user permissions
+  const filteredNavigation = useMemo(() => {
+    return navigation.filter(item => isRouteAllowed(item.href, userRole));
+  }, [userRole]);
   
   // Generate proper initials from the full name
   const getInitials = (name: string) => {
@@ -127,7 +137,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           {/* Navigation */}
           <nav className="flex-1 p-4">
             <ul className="space-y-2">
-              {navigation.map((item) => {
+              {filteredNavigation.map((item) => {
                 const isActive = location.pathname === item.href;
                 return (
                   <li key={item.name}>

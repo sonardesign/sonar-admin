@@ -8,11 +8,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog'
 import { Badge } from '../components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
-import { ArrowLeft, Plus, Clock, DollarSign, Receipt, Calculator, Edit2 } from 'lucide-react'
+import { ArrowLeft, Plus, Clock, DollarSign, Receipt, Calculator, Edit2, Users, Trash2 } from 'lucide-react'
 import { useSupabaseAppState } from '../hooks/useSupabaseAppState'
 import { useProjectsData } from '../hooks/useProjectsData'
+import { usePermissions } from '../hooks/usePermissions'
+import { InviteMembersModal } from '../components/InviteMembersModal'
+import { projectMembersService } from '../services/supabaseService'
 import { Project, TimeEntry } from '../types'
 import { Page } from '../components/Page'
+import { notifications } from '../lib/notifications'
 
 interface MaterialCost {
   id: string
@@ -55,6 +59,13 @@ export const ProjectDetails: React.FC = () => {
   const [userHourlyRates, setUserHourlyRates] = useState<UserHourlyRate[]>([])
   const [isEditRateOpen, setIsEditRateOpen] = useState(false)
   const [editingRate, setEditingRate] = useState<EditRateData | null>(null)
+  
+  // Project members management state
+  const [projectMembers, setProjectMembers] = useState<any[]>([])
+  const [isInviteMembersOpen, setIsInviteMembersOpen] = useState(false)
+  const [loadingMembers, setLoadingMembers] = useState(false)
+  
+  const { isAdmin } = usePermissions()
 
   // Find the project by name from URL
   const project = useMemo(() => {
@@ -62,6 +73,61 @@ export const ProjectDetails: React.FC = () => {
     const decodedName = decodeURIComponent(projectName)
     return projects.find(p => p.name === decodedName) || null
   }, [projectName, projects])
+
+  // Load project members when project is loaded
+  useEffect(() => {
+    if (project?.id) {
+      loadProjectMembers();
+    }
+  }, [project?.id]);
+
+  const loadProjectMembers = async () => {
+    if (!project?.id) return;
+    
+    setLoadingMembers(true);
+    try {
+      const { data, error } = await projectMembersService.getProjectMembers(project.id);
+      if (error) {
+        console.error('Error loading project members:', error);
+      } else {
+        setProjectMembers(data || []);
+      }
+    } catch (err) {
+      console.error('Error loading project members:', err);
+    } finally {
+      setLoadingMembers(false);
+    }
+  };
+
+  const handleMemberRoleChange = async (memberId: string, newRole: 'member' | 'manager') => {
+    try {
+      const { error } = await projectMembersService.updateProjectMemberRole(memberId, newRole);
+      if (error) {
+        notifications.createError('Update Role', error.message);
+      } else {
+        notifications.createSuccess('Role Updated', 'Project role has been updated');
+        loadProjectMembers();
+      }
+    } catch (err) {
+      console.error('Error updating member role:', err);
+      notifications.createError('Update Role', 'Failed to update role');
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    try {
+      const { error } = await projectMembersService.removeProjectMember(memberId);
+      if (error) {
+        notifications.createError('Remove Member', error.message);
+      } else {
+        notifications.createSuccess('Member Removed', 'Member has been removed from project');
+        loadProjectMembers();
+      }
+    } catch (err) {
+      console.error('Error removing member:', err);
+      notifications.createError('Remove Member', 'Failed to remove member');
+    }
+  };
 
   // Get time entries for this project
   const projectTimeEntries = useMemo(() => {
@@ -509,58 +575,108 @@ export const ProjectDetails: React.FC = () => {
               </CardContent>
             </Card>
 
-            {/* Hourly Rates Management */}
+            {/* Project Members Management */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
-                  Hourly Rates
-                </CardTitle>
-                <CardDescription>
-                  Manage cost and price rates for project contributors
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      Project Members
+                    </CardTitle>
+                    <CardDescription>
+                      Manage team members and their roles
+                    </CardDescription>
+                  </div>
+                  {isAdmin && (
+                    <Button
+                      onClick={() => setIsInviteMembersOpen(true)}
+                      size="sm"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Invite Members
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
-                {projectContributors.length > 0 ? (
+                {loadingMembers ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Clock className="h-8 w-8 animate-spin mx-auto mb-4" />
+                    <p>Loading members...</p>
+                  </div>
+                ) : projectMembers.length > 0 ? (
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>User Name</TableHead>
-                        <TableHead className="text-right">Cost per Hour</TableHead>
-                        <TableHead className="text-right">Price per Hour</TableHead>
-                        <TableHead className="w-[50px]"></TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Project Role</TableHead>
+                        {isAdmin && <TableHead className="w-[50px]"></TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {projectContributors.map((contributor) => (
-                        <TableRow key={contributor.userId}>
+                      {projectMembers.map((member) => (
+                        <TableRow key={member.id}>
                           <TableCell className="font-medium">
-                            {contributor.userName}
+                            {member.profiles?.full_name || 'Unknown User'}
                           </TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(contributor.costPerHour, contributor.currency)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(contributor.pricePerHour, contributor.currency)}
+                          <TableCell className="text-muted-foreground text-sm">
+                            {member.profiles?.email || ''}
                           </TableCell>
                           <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditRate(contributor)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
+                            {isAdmin ? (
+                              <Select
+                                value={member.role}
+                                onValueChange={(value: 'member' | 'manager') => 
+                                  handleMemberRoleChange(member.id, value)
+                                }
+                              >
+                                <SelectTrigger className="h-8 w-[120px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="member">Member</SelectItem>
+                                  <SelectItem value="manager">Manager</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Badge variant={member.role === 'manager' ? 'default' : 'secondary'}>
+                                {member.role === 'manager' ? 'Manager' : 'Member'}
+                              </Badge>
+                            )}
                           </TableCell>
+                          {isAdmin && (
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveMember(member.id)}
+                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
-                    <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No contributors found for this project.</p>
+                    <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No members added to this project yet.</p>
+                    {isAdmin && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsInviteMembersOpen(true)}
+                        className="mt-4"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Invite First Member
+                      </Button>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -731,6 +847,19 @@ export const ProjectDetails: React.FC = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Invite Members Modal */}
+      {project && (
+        <InviteMembersModal
+          open={isInviteMembersOpen}
+          onOpenChange={setIsInviteMembersOpen}
+          projectId={project.id}
+          projectName={project.name}
+          availableUsers={users}
+          existingMemberIds={projectMembers.map(m => m.user_id)}
+          onMemberAdded={loadProjectMembers}
+        />
+      )}
     </Page>
   )
 }

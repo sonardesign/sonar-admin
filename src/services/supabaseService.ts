@@ -275,8 +275,9 @@ export const timeEntryService = {
   // Get all time entries for current user
   async getAll(): Promise<{ data: TimeEntry[] | null; error: Error | null }> {
     try {
+      // Query from base time_entries table instead of view to respect RLS properly
       const { data, error } = await supabase
-        .from('time_entries_detailed')
+        .from('time_entries')
         .select('*')
         .order('start_time', { ascending: false })
 
@@ -302,8 +303,9 @@ export const timeEntryService = {
   // Get time entries by date range
   async getByDateRange(startDate: string, endDate: string): Promise<{ data: TimeEntry[] | null; error: Error | null }> {
     try {
+      // Query from base time_entries table instead of view to respect RLS properly
       const { data, error } = await supabase
-        .from('time_entries_detailed')
+        .from('time_entries')
         .select('*')
         .gte('start_time', startDate)
         .lte('start_time', endDate + 'T23:59:59')
@@ -444,6 +446,157 @@ export const dashboardService = {
       return { data, error: error ? new Error(error.message) : null }
     } catch (error) {
       return { data: null, error: error as Error }
+    }
+  },
+}
+
+// =====================================================
+// USER SERVICES
+// =====================================================
+
+export const userService = {
+  // Get all visible users (based on current user's role and permissions)
+  async getVisibleUsers(): Promise<{ data: any[] | null; error: Error | null }> {
+    try {
+      const { data, error } = await supabase
+        .rpc('get_visible_users')
+
+      return { data: data || [], error: error ? new Error(error.message) : null }
+    } catch (error) {
+      return { data: null, error: error as Error }
+    }
+  },
+
+  // Get time entries for a specific user (admins only or for assigned projects)
+  async getUserTimeEntries(userId: string, startDate?: string, endDate?: string): Promise<{ data: TimeEntry[] | null; error: Error | null }> {
+    try {
+      let query = supabase
+        .from('time_entries')
+        .select('*')
+        .eq('user_id', userId)
+        .order('start_time', { ascending: false })
+
+      if (startDate) {
+        query = query.gte('start_time', startDate)
+      }
+      if (endDate) {
+        query = query.lte('start_time', endDate + 'T23:59:59')
+      }
+
+      const { data, error } = await query
+
+      if (error) return { data: null, error: new Error(error.message) }
+
+      const transformedData = data?.map((entry: any) => ({
+        ...entry,
+        projectId: entry.project_id,
+        startTime: new Date(entry.start_time),
+        endTime: entry.end_time ? new Date(entry.end_time) : undefined,
+        duration: entry.duration_minutes,
+        date: entry.start_time.split('T')[0],
+        task: entry.description,
+      })) as TimeEntry[]
+
+      return { data: transformedData, error: null }
+    } catch (error) {
+      return { data: null, error: error as Error }
+    }
+  },
+}
+
+// =====================================================
+// PROJECT MEMBERS SERVICES
+// =====================================================
+
+export const projectMembersService = {
+  // Get all members for a project
+  async getProjectMembers(projectId: string): Promise<{ data: any[] | null; error: Error | null }> {
+    try {
+      const { data, error } = await supabase
+        .from('project_members')
+        .select(`
+          *,
+          profiles!project_members_user_id_fkey (
+            id,
+            full_name,
+            email,
+            role
+          )
+        `)
+        .eq('project_id', projectId)
+        .order('added_at', { ascending: false })
+
+      if (error) return { data: null, error: new Error(error.message) }
+
+      return { data: data || [], error: null }
+    } catch (error) {
+      return { data: null, error: error as Error }
+    }
+  },
+
+  // Add member to project
+  async addProjectMember(
+    projectId: string, 
+    userId: string, 
+    role: 'member' | 'manager'
+  ): Promise<{ data: any | null; error: Error | null }> {
+    try {
+      const { data, error } = await supabase
+        .from('project_members')
+        .insert([{
+          project_id: projectId,
+          user_id: userId,
+          role: role,
+          can_edit_project: role === 'manager',
+          can_view_reports: true
+        }])
+        .select()
+        .single()
+
+      if (error) return { data: null, error: new Error(error.message) }
+
+      return { data, error: null }
+    } catch (error) {
+      return { data: null, error: error as Error }
+    }
+  },
+
+  // Update project member role
+  async updateProjectMemberRole(
+    memberId: string,
+    role: 'member' | 'manager'
+  ): Promise<{ data: any | null; error: Error | null }> {
+    try {
+      const { data, error } = await supabase
+        .from('project_members')
+        .update({
+          role: role,
+          can_edit_project: role === 'manager',
+          can_view_reports: true
+        })
+        .eq('id', memberId)
+        .select()
+        .single()
+
+      if (error) return { data: null, error: new Error(error.message) }
+
+      return { data, error: null }
+    } catch (error) {
+      return { data: null, error: error as Error }
+    }
+  },
+
+  // Remove member from project
+  async removeProjectMember(memberId: string): Promise<{ error: Error | null }> {
+    try {
+      const { error } = await supabase
+        .from('project_members')
+        .delete()
+        .eq('id', memberId)
+
+      return { error: error ? new Error(error.message) : null }
+    } catch (error) {
+      return { error: error as Error }
     }
   },
 }

@@ -4,7 +4,7 @@ export interface Profile {
   email: string;
   full_name: string;
   avatar_url?: string;
-  role: 'admin' | 'manager' | 'user';
+  role: 'admin' | 'manager' | 'member';
   timezone: string;
   date_format: string;
   time_format: '12h' | '24h';
@@ -91,6 +91,7 @@ export interface TimeEntry {
   is_billable: boolean;
   hourly_rate?: number;
   tags?: string[];
+  entry_type?: 'planned' | 'reported';
   created_at: string;
   updated_at: string;
   // Legacy compatibility
@@ -99,7 +100,6 @@ export interface TimeEntry {
   endTime?: Date;
   duration?: number; // in minutes
   date?: string; // YYYY-MM-DD format
-  task?: string; // Task description
 }
 
 export interface Invoice {
@@ -156,6 +156,20 @@ export interface TimeSlot {
   projectId?: string;
   selected: boolean;
 }
+
+export interface ProjectManagerPermission {
+  id: string;
+  manager_id: string;
+  project_id: string;
+  can_view_time_entries: boolean;
+  can_edit_time_entries: boolean;
+  can_view_reports: boolean;
+  can_edit_project: boolean;
+  granted_by?: string;
+  granted_at: string;
+}
+
+export type UserRole = 'admin' | 'manager' | 'member';
 
 export type ProjectColor = 
   | '#ef4444' // red

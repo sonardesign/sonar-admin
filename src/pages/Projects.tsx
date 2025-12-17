@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -7,9 +7,10 @@ import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
-import { Plus, Edit2, Archive, Trash2, Palette, Users } from 'lucide-react';
+import { Plus, Edit2, Archive, Trash2, Palette, Users, ChevronDown, ChevronRight } from 'lucide-react';
 import { useProjectsData } from '../hooks/useProjectsData';
 import { useCustomColors } from '../hooks/useCustomColors';
+import { usePermissions } from '../hooks/usePermissions';
 import { ColorPresetSelector } from '../components/ui/color-preset-selector';
 import { SimpleColorPicker } from '../components/ui/simple-color-picker';
 import { Project, ProjectColor, Client } from '../types';
@@ -36,6 +37,7 @@ export const Projects: React.FC = () => {
   } = useProjectsData();
   
   const { allColors, addCustomColor } = useCustomColors();
+  const { canCreateProjects, canEditProjects, canOpenProjectDetails } = usePermissions();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isClientCreateOpen, setIsClientCreateOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -49,6 +51,26 @@ export const Projects: React.FC = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [tempColor, setTempColor] = useState<string>('#3b82f6');
+  const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
+
+  // Initialize all clients as expanded when they load
+  useEffect(() => {
+    if (clients.length > 0 && expandedClients.size === 0) {
+      const allClientNames = new Set(clients.map(c => c.name));
+      setExpandedClients(allClientNames);
+    }
+  }, [clients]);
+
+  // Toggle client expansion
+  const toggleClient = (clientName: string) => {
+    const newExpanded = new Set(expandedClients);
+    if (newExpanded.has(clientName)) {
+      newExpanded.delete(clientName);
+    } else {
+      newExpanded.add(clientName);
+    }
+    setExpandedClients(newExpanded);
+  };
 
   const handleCreateProject = () => {
     if (newProjectName.trim() && selectedClientId) {
@@ -242,13 +264,14 @@ export const Projects: React.FC = () => {
           >
             {showArchived ? 'Show Active' : 'Show Archived'}
           </Button>
-          <Dialog open={isClientCreateOpen} onOpenChange={setIsClientCreateOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <Users className="h-4 w-4 mr-2" />
-                Add New Client
-              </Button>
-            </DialogTrigger>
+          {canEditProjects && (
+            <Dialog open={isClientCreateOpen} onOpenChange={setIsClientCreateOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Users className="h-4 w-4 mr-2" />
+                  Add New Client
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Create New Client</DialogTitle>
@@ -288,13 +311,15 @@ export const Projects: React.FC = () => {
               </div>
             </DialogContent>
           </Dialog>
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                New Project
-              </Button>
-            </DialogTrigger>
+          )}
+          {canCreateProjects && (
+            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Project
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Create New Project</DialogTitle>
@@ -344,6 +369,7 @@ export const Projects: React.FC = () => {
               </div>
             </DialogContent>
           </Dialog>
+          )}
         </div>
       </div>
 
@@ -371,12 +397,25 @@ export const Projects: React.FC = () => {
         </Card>
       ) : (
         <div className="space-y-8">
-          {Object.entries(allGroupedProjects).map(([clientName, clientProjects]) => (
-            <div key={clientName}>
-              {/* Client Header */}
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold text-foreground">{clientName}</h2>
+          {Object.entries(allGroupedProjects).map(([clientName, clientProjects]) => {
+            const isExpanded = expandedClients.has(clientName);
+            
+            return (
+              <div key={clientName}>
+                {/* Client Header */}
+                <div className="mb-4 flex items-center justify-between">
+                  <div 
+                    className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => toggleClient(clientName)}
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                    )}
+                    <h2 className="text-xl font-semibold text-foreground">{clientName}</h2>
+                  </div>
+                  <div>
                   {(() => {
                     const clientsWithThisName = clients.filter(c => c.name === clientName);
                     const mainClient = clientsWithThisName[0];
@@ -393,8 +432,8 @@ export const Projects: React.FC = () => {
                       </div>
                     );
                   })()}
-                </div>
-                <div className="flex items-center gap-1">
+                  </div>
+                  <div className="flex items-center gap-1">
                   {(() => {
                     const clientsWithThisName = clients.filter(c => c.name === clientName);
                     return clientsWithThisName.length > 1 ? (
@@ -425,23 +464,26 @@ export const Projects: React.FC = () => {
                       </Button>
                     );
                   })()}
+                  </div>
                 </div>
-              </div>
               
-              {/* Projects List for this Client */}
-              <Card>
+              {/* Projects List for this Client - Only show when expanded */}
+              {isExpanded && (
+                <Card>
                 <CardContent className="p-0">
                   {clientProjects.length === 0 ? (
                     <div className="p-8 text-center text-muted-foreground">
                       <div className="text-sm">No projects for this client yet.</div>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="mt-2"
-                        onClick={() => setIsCreateOpen(true)}
-                      >
-                        Create First Project
-                      </Button>
+                      {canEditProjects && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="mt-2"
+                          onClick={() => setIsCreateOpen(true)}
+                        >
+                          Create First Project
+                        </Button>
+                      )}
                     </div>
                   ) : (
                     <div className="divide-y divide-border">
@@ -457,12 +499,16 @@ export const Projects: React.FC = () => {
                               style={{ backgroundColor: project.color }}
                             />
                             <div>
-                              <button
-                                onClick={() => navigate(`/projects/${encodeURIComponent(project.name)}`)}
-                                className="font-medium text-foreground hover:text-primary transition-colors text-left"
-                              >
-                                <h3 className="font-medium">{project.name}</h3>
-                              </button>
+                              {canOpenProjectDetails ? (
+                                <button
+                                  onClick={() => navigate(`/projects/${encodeURIComponent(project.name)}`)}
+                                  className="font-medium text-foreground hover:text-primary transition-colors text-left"
+                                >
+                                  <h3 className="font-medium">{project.name}</h3>
+                                </button>
+                              ) : (
+                                <h3 className="font-medium text-foreground">{project.name}</h3>
+                              )}
                               <p className="text-sm text-muted-foreground">
                                 Created {new Date(project.created_at || project.createdAt || Date.now()).toLocaleDateString('en-US', {
                                   year: 'numeric',
@@ -489,44 +535,46 @@ export const Projects: React.FC = () => {
                             <Badge variant={project.archived ? 'secondary' : 'default'}>
                               {project.archived ? 'Archived' : 'Active'}
                             </Badge>
-                            <div className="flex items-center space-x-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => startEditing(project)}
-                                className="h-8 w-8 p-0"
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                              {!project.archived ? (
+                            {canEditProjects && (
+                              <div className="flex items-center space-x-1">
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => archiveProject(project.id)}
+                                  onClick={() => startEditing(project)}
                                   className="h-8 w-8 p-0"
                                 >
-                                  <Archive className="h-4 w-4" />
+                                  <Edit2 className="h-4 w-4" />
                                 </Button>
-                              ) : (
+                                {!project.archived ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => archiveProject(project.id)}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Archive className="h-4 w-4" />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => unarchiveProject(project.id)}
+                                    className="h-8 w-8 p-0"
+                                    title="Unarchive Project"
+                                  >
+                                    <Archive className="h-4 w-4" />
+                                  </Button>
+                                )}
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => unarchiveProject(project.id)}
-                                  className="h-8 w-8 p-0"
-                                  title="Unarchive Project"
+                                  onClick={() => deleteProject(project.id)}
+                                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                                 >
-                                  <Archive className="h-4 w-4" />
+                                  <Trash2 className="h-4 w-4" />
                                 </Button>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => deleteProject(project.id)}
-                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -534,8 +582,10 @@ export const Projects: React.FC = () => {
                   )}
                 </CardContent>
               </Card>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
