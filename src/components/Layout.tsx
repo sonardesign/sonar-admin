@@ -37,7 +37,7 @@ const navigation = [
   { name: 'Time Tracking', href: '/time-tracking', icon: Timer },
   { name: 'Timetable', href: '/timetable', icon: CalendarDays },
     { name: 'Projects', href: '/projects', icon: FolderOpen },
-    { name: 'Workload', href: '/workload', icon: Users },
+    { name: 'Forecast', href: '/workload', icon: Users },
     { name: 'Reports', href: '/reports', icon: BarChart3 },
     { name: 'Summary', href: '/summary', icon: PieChart },
     { name: 'Settings', href: '/settings', icon: Settings },

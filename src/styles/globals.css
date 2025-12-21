@@ -56,3 +56,28 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Forecast drag-and-drop styles */
+.forecast-cell {
+  cursor: crosshair;
+  user-select: none;
+}
+
+.forecast-entry {
+  user-select: none;
+  transition: opacity 0.2s ease;
+}
+
+.forecast-entry:hover {
+  opacity: 0.9;
+}
+
+body.is-dragging {
+  cursor: move !important;
+  user-select: none;
+}
+
+body.is-dragging * {
+  cursor: move !important;
+  user-select: none;
+}

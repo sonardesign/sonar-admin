@@ -12,7 +12,7 @@ import { Reports } from './pages/Reports'
 import { Summary } from './pages/Summary'
 import { MonthlyDetail } from './pages/MonthlyDetail'
 import { Settings } from './pages/Settings'
-import { WorkloadPlanning } from './pages/WorkloadPlanning'
+import { ForecastPlanning } from './pages/WorkloadPlanning'
 import { Loader2 } from 'lucide-react'
 import { Toaster } from 'sonner'
 import './styles/globals.css'
@@ -91,7 +91,7 @@ function App() {
                 } />
                 <Route path="/workload" element={
                   <ProtectedRoute>
-                    <WorkloadPlanning />
+                    <ForecastPlanning />
                   </ProtectedRoute>
                 } />
         </Routes>
