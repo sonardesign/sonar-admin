@@ -1,4 +1,4 @@
-# RLS Infinite Recursion Fix - December 15, 2024
+t# RLS Infinite Recursion Fix - December 15, 2024
 
 ## 🔴 Problem
 

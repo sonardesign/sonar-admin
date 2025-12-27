@@ -10,6 +10,8 @@ import {
   BarChart3,
   PieChart,
   Moon,
+  Sun,
+  Monitor,
   LogOut,
   ChevronUp,
   Settings,
@@ -25,6 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { useAuth } from '../hooks/useAuth';
 import { useSupabaseAppState } from '../hooks/useSupabaseAppState';
 import { usePermissions } from '../hooks/usePermissions';
+import { useTheme } from '../hooks/useTheme';
 import { notifications } from '../lib/notifications';
 import { isRouteAllowed } from '../lib/permissions';
 
@@ -48,6 +51,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { user, signOut } = useAuth();
   const { users } = useSupabaseAppState();
   const { userRole } = usePermissions();
+  const { theme, setTheme, isDark } = useTheme();
   
   // Settings modal state
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -77,10 +81,20 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       .join('');
   };
   
-  const handleDarkModeToggle = () => {
-    // TODO: Implement dark mode toggle
-    console.log('Dark mode toggle clicked - not implemented yet');
+  // Get theme icon and label
+  const getThemeIcon = () => {
+    if (theme === 'light') return Sun;
+    if (theme === 'dark') return Moon;
+    return Monitor; // system
   };
+  
+  const getThemeLabel = () => {
+    if (theme === 'light') return 'Light Mode';
+    if (theme === 'dark') return 'Dark Mode';
+    return 'System';
+  };
+  
+  const ThemeIcon = getThemeIcon();
   
   const handleOpenSettings = () => {
     // Initialize form with current user data
@@ -192,9 +206,20 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   <Settings className="h-4 w-4 mr-2" />
                   Preferences
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleDarkModeToggle}>
+                <DropdownMenuItem onClick={() => setTheme('light')}>
+                  <Sun className="h-4 w-4 mr-2" />
+                  Light
+                  {theme === 'light' && <span className="ml-auto text-primary">✓</span>}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme('dark')}>
                   <Moon className="h-4 w-4 mr-2" />
-                  Dark Mode
+                  Dark
+                  {theme === 'dark' && <span className="ml-auto text-primary">✓</span>}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme('system')}>
+                  <Monitor className="h-4 w-4 mr-2" />
+                  System
+                  {theme === 'system' && <span className="ml-auto text-primary">✓</span>}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="text-destructive">

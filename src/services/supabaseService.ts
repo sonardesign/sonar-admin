@@ -330,17 +330,25 @@ export const timeEntryService = {
   },
 
   // Create time entry
-  async create(entry: Omit<TimeEntry, 'id' | 'created_at' | 'updated_at' | 'user_id'>): Promise<{ data: TimeEntry | null; error: Error | null }> {
+  async create(entry: Omit<TimeEntry, 'id' | 'created_at' | 'updated_at' | 'user_id'> & { user_id?: string }): Promise<{ data: TimeEntry | null; error: Error | null }> {
     try {
-      // Get the current authenticated user
-      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      // If user_id is provided (for admin/manager creating entries for others), use it
+      // Otherwise, get the current authenticated user
+      let targetUserId = entry.user_id
       
-      if (authError || !user) {
-        return { data: null, error: new Error('User not authenticated') }
+      if (!targetUserId) {
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        
+        if (authError || !user) {
+          console.error('Auth error:', authError)
+          return { data: null, error: new Error('User not authenticated') }
+        }
+        
+        targetUserId = user.id
       }
 
       const entryData = {
-        user_id: user.id, // Set the authenticated user ID
+        user_id: targetUserId,
         project_id: entry.project_id || entry.projectId!,
         description: entry.description || entry.task,
         start_time: entry.start_time || entry.startTime!.toISOString(),
@@ -349,7 +357,10 @@ export const timeEntryService = {
         is_billable: entry.is_billable ?? true,
         hourly_rate: entry.hourly_rate,
         tags: entry.tags,
+        entry_type: entry.entry_type || 'reported',
       }
+
+      console.log('timeEntryService.create - Inserting with entryData:', entryData)
 
       const { data, error } = await supabase
         .from('time_entries')
@@ -357,7 +368,10 @@ export const timeEntryService = {
         .select()
         .single()
 
-      if (error) return { data: null, error: new Error(error.message) }
+      if (error) {
+        console.error('Supabase insert error:', error)
+        return { data: null, error: new Error(error.message) }
+      }
 
       const transformedData = {
         ...data,
