@@ -29,11 +29,13 @@ interface PlannedEntry {
 
 export const ForecastPlanning: React.FC = () => {
   const { isAdmin, isManager } = usePermissions()
-  const { projects, users, createTimeEntry, updateTimeEntry, deleteTimeEntry } = useSupabaseAppState()
+  const { projects, users, clients, createTimeEntry, updateTimeEntry, deleteTimeEntry } = useSupabaseAppState()
   
   // View state
   const [view, setView] = useState<'projects' | 'members'>('projects')
+  const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set())
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set())
+  const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set())
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -102,6 +104,29 @@ export const ForecastPlanning: React.FC = () => {
     projects.filter(p => !p.is_archived && !p.archived),
     [projects]
   )
+
+  // Group projects by client
+  const projectsByClient = useMemo(() => {
+    const grouped: Record<string, typeof activeProjects> = {}
+    
+    activeProjects.forEach(project => {
+      const clientId = project.client_id || 'no-client'
+      if (!grouped[clientId]) {
+        grouped[clientId] = []
+      }
+      grouped[clientId].push(project)
+    })
+    
+    return grouped
+  }, [activeProjects])
+
+  // Get active clients that have projects
+  const activeClients = useMemo(() => {
+    const clientIds = Object.keys(projectsByClient)
+    return clients
+      .filter(c => clientIds.includes(c.id) && c.is_active)
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [clients, projectsByClient])
 
   // Load project members for all active projects
   useEffect(() => {
@@ -216,6 +241,16 @@ export const ForecastPlanning: React.FC = () => {
     return projectMembers[projectId] || []
   }, [projectMembers])
 
+  // Helper to get projects for a member
+  const getMemberProjects = useCallback((memberId: string) => {
+    // Find all projects where this member is assigned
+    const memberProjectIds = Object.entries(projectMembers)
+      .filter(([_, members]) => members.some(m => m.id === memberId))
+      .map(([projectId]) => projectId)
+    
+    return activeProjects.filter(p => memberProjectIds.includes(p.id))
+  }, [projectMembers, activeProjects])
+
   // Navigation
   const goToPreviousWeek = () => {
     const newStart = new Date(currentWeekStart)
@@ -235,6 +270,19 @@ export const ForecastPlanning: React.FC = () => {
     setCurrentWeekStart(today)
   }
 
+  // Client accordion toggle
+  const toggleClient = (clientId: string) => {
+    setExpandedClients(prev => {
+      const next = new Set(prev)
+      if (next.has(clientId)) {
+        next.delete(clientId)
+      } else {
+        next.add(clientId)
+      }
+      return next
+    })
+  }
+
   // Project accordion toggle
   const toggleProject = (projectId: string) => {
     setExpandedProjects(prev => {
@@ -248,11 +296,28 @@ export const ForecastPlanning: React.FC = () => {
     })
   }
 
-  // Expand all projects by default on load
+  // Member accordion toggle
+  const toggleMember = (memberId: string) => {
+    setExpandedMembers(prev => {
+      const next = new Set(prev)
+      if (next.has(memberId)) {
+        next.delete(memberId)
+      } else {
+        next.add(memberId)
+      }
+      return next
+    })
+  }
+
+  // Expand all clients, projects, and members by default on load
   useEffect(() => {
+    const allClientIds = activeClients.map(c => c.id)
+    setExpandedClients(new Set(allClientIds))
     const allProjectIds = activeProjects.map(p => p.id)
     setExpandedProjects(new Set(allProjectIds))
-  }, [activeProjects])
+    const allMemberIds = users.map(u => u.id)
+    setExpandedMembers(new Set(allMemberIds))
+  }, [activeClients, activeProjects, users])
 
   // Calculate total scheduled hours
   const getTotalScheduledHours = (projectId?: string, userId?: string): number => {
@@ -544,14 +609,14 @@ export const ForecastPlanning: React.FC = () => {
           </div>
 
           {/* Projects View */}
-          <TabsContent value="projects">
+          <TabsContent value="projects" className="mt-0">
             <Card>
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
+                <div className="overflow-auto h-[calc(100vh-120px)]">
                   <table className="w-full border-collapse">
-                    <thead>
+                    <thead className="sticky top-0 z-20">
                       <tr className="border-b bg-muted/50">
-                        <th className="sticky left-0 z-10 bg-muted/50 px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">
+                        <th className="sticky left-0 z-30 bg-muted/50 px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">
                           Project
                         </th>
                         <th className="px-3 py-3 text-center text-xs font-semibold border-r-2 border-border bg-muted/50 w-20">
@@ -565,10 +630,10 @@ export const ForecastPlanning: React.FC = () => {
                               <th
                                 key={day.date}
                                 className={cn(
-                                  "px-2 py-3 text-center text-xs font-medium relative",
+                                  "px-2 py-3 text-center text-xs font-medium relative bg-muted/50",
                                   "w-[80px] min-w-[80px] max-w-[80px]",
-                                  day.isWeekend && "bg-muted/30",
-                                  day.isToday && "bg-primary/10",
+                                  day.isWeekend && "bg-muted/70",
+                                  day.isToday && "bg-primary/20",
                                   dayIdx === 0 && weekIdx > 0 && "border-l-2 border-border"
                                 )}
                               >
@@ -584,80 +649,297 @@ export const ForecastPlanning: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {activeProjects.map((project) => {
-                        const totalScheduled = getTotalScheduledHours(project.id, undefined)
-                        const isExpanded = expandedProjects.has(project.id)
-                        const projectMembers = getProjectMembers(project.id)
+                      {activeClients.map((client) => {
+                        const isClientExpanded = expandedClients.has(client.id)
+                        const clientProjects = projectsByClient[client.id] || []
+                        
+                        // Calculate total scheduled hours for all projects under this client
+                        const clientTotalScheduled = clientProjects.reduce((sum, project) => {
+                          return sum + getTotalScheduledHours(project.id, undefined)
+                        }, 0)
                         
                         return (
-                          <React.Fragment key={project.id}>
-                            <tr className="border-b hover:bg-muted/30">
+                          <React.Fragment key={client.id}>
+                            {/* Client Row */}
+                            <tr className="border-b bg-muted/30 hover:bg-muted/40">
                               <td 
-                                className="sticky left-0 z-10 bg-background px-4 py-3 text-sm font-medium border-r cursor-pointer whitespace-nowrap"
-                                onClick={() => toggleProject(project.id)}
+                                className="sticky left-0 z-10 bg-muted/30 px-4 py-3 text-sm font-semibold border-r cursor-pointer whitespace-nowrap"
+                                onClick={() => toggleClient(client.id)}
                               >
                                 <div className="flex items-center justify-between gap-2">
                                   <div className="flex items-center gap-2">
-                                    <div
-                                      className="h-3 w-3 rounded-full flex-shrink-0"
-                                      style={{ backgroundColor: project.color }}
-                                    />
-                                    <span>{project.name}</span>
+                                    <span className="text-foreground">{client.name}</span>
+                                    <span className="text-xs text-muted-foreground">({clientProjects.length} projects)</span>
                                   </div>
-                                  {isExpanded ? (
+                                  {isClientExpanded ? (
                                     <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                                   ) : (
                                     <ChevronRightIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                                   )}
                                 </div>
                               </td>
-                              <td className="px-3 py-3 text-center text-sm font-semibold border-r-2 border-border bg-muted/20">
-                                {totalScheduled > 0 ? `${totalScheduled}h` : '-'}
+                              <td className="px-3 py-3 text-center text-sm font-semibold border-r-2 border-border bg-muted/30">
+                                {clientTotalScheduled > 0 ? `${clientTotalScheduled}h` : '-'}
                               </td>
-                              {/* Day cells with drag-and-drop */}
-                              <td colSpan={21} className="p-0 relative" style={{ height: '48px' }}>
-                                <div className="absolute inset-0 flex">
+                              {/* Empty day cells for client row */}
+                              <td colSpan={21} className="p-0 bg-muted/30" style={{ height: '48px' }}>
+                                <div className="flex h-full">
                                   {weeks.map((week, weekIdx) => (
                                     <React.Fragment key={weekIdx}>
                                       {week.map((day, dayIdx) => (
                                         <div
                                           key={day.date}
                                           className={cn(
-                                            "flex-shrink-0 border-r cursor-pointer hover:bg-muted/30",
+                                            "flex-shrink-0 border-r",
                                             "w-[80px] min-w-[80px] max-w-[80px]",
-                                            day.isWeekend && "bg-muted/20",
+                                            day.isWeekend && "bg-muted/40",
                                             dayIdx === 0 && weekIdx > 0 && "border-l-2 border-border"
                                           )}
-                                          onMouseDown={(e) => handleMouseDown(e, day.date, project.id, undefined)}
-                                          onMouseEnter={() => handleMouseEnter(day.date, project.id, undefined)}
                                         />
                                       ))}
                                     </React.Fragment>
                                   ))}
-                                  {/* Render entry bars */}
-                                  {renderEntryBars(project.id, undefined, `${project.id}___none`)}
-                                  {/* Render drag preview */}
-                                  {renderDragPreview(`${project.id}___none`)}
                                 </div>
                               </td>
                             </tr>
 
-                            {/* Expanded member rows */}
-                            {isExpanded && getProjectMembers(project.id).map((member) => {
-                              const memberTotalScheduled = getTotalScheduledHours(project.id, member.id)
+                            {/* Expanded Projects under Client */}
+                            {isClientExpanded && clientProjects.map((project) => {
+                              const totalScheduled = getTotalScheduledHours(project.id, undefined)
+                              const isProjectExpanded = expandedProjects.has(project.id)
+                              const members = getProjectMembers(project.id)
                               
                               return (
-                                <tr key={`${project.id}-${member.id}`} className="border-b hover:bg-muted/20 bg-muted/5">
+                                <React.Fragment key={project.id}>
+                                  {/* Project Row */}
+                                  <tr className="border-b hover:bg-muted/20">
+                                    <td 
+                                      className="sticky left-0 z-10 bg-background px-4 py-3 text-sm font-medium border-r cursor-pointer whitespace-nowrap"
+                                      onClick={() => toggleProject(project.id)}
+                                    >
+                                      <div className="flex items-center justify-between gap-2 pl-4">
+                                        <div className="flex items-center gap-2">
+                                          <div
+                                            className="h-3 w-3 rounded-full flex-shrink-0"
+                                            style={{ backgroundColor: project.color }}
+                                          />
+                                          <span>{project.name}</span>
+                                        </div>
+                                        {isProjectExpanded ? (
+                                          <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                        ) : (
+                                          <ChevronRightIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="px-3 py-3 text-center text-sm font-semibold border-r-2 border-border bg-muted/20">
+                                      {totalScheduled > 0 ? `${totalScheduled}h` : '-'}
+                                    </td>
+                                    {/* Day cells with drag-and-drop */}
+                                    <td colSpan={21} className="p-0 relative" style={{ height: '48px' }}>
+                                      <div className="absolute inset-0 flex">
+                                        {weeks.map((week, weekIdx) => (
+                                          <React.Fragment key={weekIdx}>
+                                            {week.map((day, dayIdx) => (
+                                              <div
+                                                key={day.date}
+                                                className={cn(
+                                                  "flex-shrink-0 border-r cursor-pointer hover:bg-muted/30",
+                                                  "w-[80px] min-w-[80px] max-w-[80px]",
+                                                  day.isWeekend && "bg-muted/20",
+                                                  dayIdx === 0 && weekIdx > 0 && "border-l-2 border-border"
+                                                )}
+                                                onMouseDown={(e) => handleMouseDown(e, day.date, project.id, undefined)}
+                                                onMouseEnter={() => handleMouseEnter(day.date, project.id, undefined)}
+                                              />
+                                            ))}
+                                          </React.Fragment>
+                                        ))}
+                                        {/* Render entry bars */}
+                                        {renderEntryBars(project.id, undefined, `${project.id}___none`)}
+                                        {/* Render drag preview */}
+                                        {renderDragPreview(`${project.id}___none`)}
+                                      </div>
+                                    </td>
+                                  </tr>
+
+                                  {/* Expanded member rows */}
+                                  {isProjectExpanded && members.map((member) => {
+                                    const memberTotalScheduled = getTotalScheduledHours(project.id, member.id)
+                                    
+                                    return (
+                                      <tr key={`${project.id}-${member.id}`} className="border-b hover:bg-muted/20 bg-muted/5">
+                                        <td className="sticky left-0 z-10 bg-muted/5 px-4 py-2 text-sm border-r whitespace-nowrap">
+                                          <div className="flex items-center gap-2 pl-10">
+                                            <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold flex-shrink-0">
+                                              {member.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '?'}
+                                            </div>
+                                            <span className="text-muted-foreground">{member.full_name}</span>
+                                          </div>
+                                        </td>
+                                        <td className="px-3 py-2 text-center text-sm font-medium border-r-2 border-border bg-muted/10">
+                                          {memberTotalScheduled > 0 ? `${memberTotalScheduled}h` : '-'}
+                                        </td>
+                                        {/* Day cells with drag-and-drop */}
+                                        <td colSpan={21} className="p-0 relative" style={{ height: '40px' }}>
+                                          <div className="absolute inset-0 flex">
+                                            {weeks.map((week, weekIdx) => (
+                                              <React.Fragment key={weekIdx}>
+                                                {week.map((day, dayIdx) => (
+                                                  <div
+                                                    key={day.date}
+                                                    className={cn(
+                                                      "flex-shrink-0 border-r cursor-pointer hover:bg-muted/30",
+                                                      "w-[80px] min-w-[80px] max-w-[80px]",
+                                                      day.isWeekend && "bg-muted/20",
+                                                      dayIdx === 0 && weekIdx > 0 && "border-l-2 border-border"
+                                                    )}
+                                                    onMouseDown={(e) => handleMouseDown(e, day.date, project.id, member.id)}
+                                                    onMouseEnter={() => handleMouseEnter(day.date, project.id, member.id)}
+                                                  />
+                                                ))}
+                                              </React.Fragment>
+                                            ))}
+                                            {/* Render entry bars */}
+                                            {renderEntryBars(project.id, member.id, `${project.id}___${member.id}`)}
+                                            {/* Render drag preview */}
+                                            {renderDragPreview(`${project.id}___${member.id}`)}
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    )
+                                  })}
+                                </React.Fragment>
+                              )
+                            })}
+                          </React.Fragment>
+                        )
+                      })}
+                      {activeClients.length === 0 && (
+                        <tr>
+                          <td colSpan={23} className="py-8 text-center text-muted-foreground">
+                            No active clients with projects found
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Team Members View */}
+          <TabsContent value="members" className="mt-0">
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-auto h-[calc(100vh-120px)]">
+                  <table className="w-full border-collapse">
+                    <thead className="sticky top-0 z-20">
+                      <tr className="border-b bg-muted/50">
+                        <th className="sticky left-0 z-30 bg-muted/50 px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">
+                          Team Member
+                        </th>
+                        <th className="px-3 py-3 text-center text-xs font-semibold border-r-2 border-border bg-muted/50 w-20">
+                          <div className="leading-tight">
+                            Total<br/>Scheduled
+                          </div>
+                        </th>
+                        {weeks.map((week, weekIdx) => (
+                          <React.Fragment key={weekIdx}>
+                            {week.map((day, dayIdx) => (
+                              <th
+                                key={day.date}
+                                className={cn(
+                                  "px-2 py-3 text-center text-xs font-medium relative bg-muted/50",
+                                  "w-[80px] min-w-[80px] max-w-[80px]",
+                                  day.isWeekend && "bg-muted/70",
+                                  day.isToday && "bg-primary/20",
+                                  dayIdx === 0 && weekIdx > 0 && "border-l-2 border-border"
+                                )}
+                              >
+                                <div className={cn(day.isToday && "text-primary font-semibold")}>{day.dayName}</div>
+                                <div className={cn("text-muted-foreground", day.isToday && "text-primary font-semibold")}>{day.dayNumber}</div>
+                                {day.isToday && (
+                                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                                )}
+                              </th>
+                            ))}
+                          </React.Fragment>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {users.map((member) => {
+                        const totalScheduled = getTotalScheduledHours(undefined, member.id)
+                        const isMemberExpanded = expandedMembers.has(member.id)
+                        const memberProjects = getMemberProjects(member.id)
+                        
+                        return (
+                          <React.Fragment key={member.id}>
+                            {/* Member Row */}
+                            <tr className="border-b bg-muted/30 hover:bg-muted/40">
+                              <td 
+                                className="sticky left-0 z-10 bg-muted/30 px-4 py-3 text-sm font-semibold border-r cursor-pointer whitespace-nowrap"
+                                onClick={() => toggleMember(member.id)}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold flex-shrink-0">
+                                      {member.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '?'}
+                                    </div>
+                                    <span>{member.full_name}</span>
+                                    <span className="text-xs text-muted-foreground">({memberProjects.length} projects)</span>
+                                  </div>
+                                  {isMemberExpanded ? (
+                                    <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                  ) : (
+                                    <ChevronRightIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-3 py-3 text-center text-sm font-semibold border-r-2 border-border bg-muted/30">
+                                {totalScheduled > 0 ? `${totalScheduled}h` : '-'}
+                              </td>
+                              {/* Empty day cells for member row */}
+                              <td colSpan={21} className="p-0 bg-muted/30" style={{ height: '48px' }}>
+                                <div className="flex h-full">
+                                  {weeks.map((week, weekIdx) => (
+                                    <React.Fragment key={weekIdx}>
+                                      {week.map((day, dayIdx) => (
+                                        <div
+                                          key={day.date}
+                                          className={cn(
+                                            "flex-shrink-0 border-r",
+                                            "w-[80px] min-w-[80px] max-w-[80px]",
+                                            day.isWeekend && "bg-muted/40",
+                                            dayIdx === 0 && weekIdx > 0 && "border-l-2 border-border"
+                                          )}
+                                        />
+                                      ))}
+                                    </React.Fragment>
+                                  ))}
+                                </div>
+                              </td>
+                            </tr>
+
+                            {/* Expanded Project rows under Member */}
+                            {isMemberExpanded && memberProjects.map((project) => {
+                              const projectTotalScheduled = getTotalScheduledHours(project.id, member.id)
+                              
+                              return (
+                                <tr key={`${member.id}-${project.id}`} className="border-b hover:bg-muted/20 bg-muted/5">
                                   <td className="sticky left-0 z-10 bg-muted/5 px-4 py-2 text-sm border-r whitespace-nowrap">
                                     <div className="flex items-center gap-2 pl-6">
-                                      <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold flex-shrink-0">
-                                        {member.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?'}
-                                      </div>
-                                      <span className="text-muted-foreground">{member.full_name}</span>
+                                      <div
+                                        className="h-3 w-3 rounded-full flex-shrink-0"
+                                        style={{ backgroundColor: project.color }}
+                                      />
+                                      <span className="text-muted-foreground">{project.name}</span>
                                     </div>
                                   </td>
                                   <td className="px-3 py-2 text-center text-sm font-medium border-r-2 border-border bg-muted/10">
-                                    {memberTotalScheduled > 0 ? `${memberTotalScheduled}h` : '-'}
+                                    {projectTotalScheduled > 0 ? `${projectTotalScheduled}h` : '-'}
                                   </td>
                                   {/* Day cells with drag-and-drop */}
                                   <td colSpan={21} className="p-0 relative" style={{ height: '40px' }}>
@@ -689,106 +971,6 @@ export const ForecastPlanning: React.FC = () => {
                               )
                             })}
                           </React.Fragment>
-                        )
-                      })}
-                      {activeProjects.length === 0 && (
-                        <tr>
-                          <td colSpan={23} className="py-8 text-center text-muted-foreground">
-                            No active projects found
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Team Members View */}
-          <TabsContent value="members">
-            <Card>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="border-b bg-muted/50">
-                        <th className="sticky left-0 z-10 bg-muted/50 px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">
-                          Team Member
-                        </th>
-                        <th className="px-3 py-3 text-center text-xs font-semibold border-r-2 border-border bg-muted/50 w-20">
-                          <div className="leading-tight">
-                            Total<br/>Scheduled
-                          </div>
-                        </th>
-                        {weeks.map((week, weekIdx) => (
-                          <React.Fragment key={weekIdx}>
-                            {week.map((day, dayIdx) => (
-                              <th
-                                key={day.date}
-                                className={cn(
-                                  "px-2 py-3 text-center text-xs font-medium relative",
-                                  "w-[80px] min-w-[80px] max-w-[80px]",
-                                  day.isWeekend && "bg-muted/30",
-                                  day.isToday && "bg-primary/10",
-                                  dayIdx === 0 && weekIdx > 0 && "border-l-2 border-border"
-                                )}
-                              >
-                                <div className={cn(day.isToday && "text-primary font-semibold")}>{day.dayName}</div>
-                                <div className={cn("text-muted-foreground", day.isToday && "text-primary font-semibold")}>{day.dayNumber}</div>
-                                {day.isToday && (
-                                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-                                )}
-                              </th>
-                            ))}
-                          </React.Fragment>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {users.map((member) => {
-                        const totalScheduled = getTotalScheduledHours(undefined, member.id)
-                        
-                        return (
-                          <tr key={member.id} className="border-b hover:bg-muted/30">
-                            <td className="sticky left-0 z-10 bg-background px-4 py-3 text-sm font-medium border-r whitespace-nowrap">
-                              <div className="flex items-center gap-2">
-                                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold flex-shrink-0">
-                                  {member.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?'}
-                                </div>
-                                <span>{member.full_name}</span>
-                              </div>
-                            </td>
-                            <td className="px-3 py-3 text-center text-sm font-semibold border-r-2 border-border bg-muted/20">
-                              {totalScheduled > 0 ? `${totalScheduled}h` : '-'}
-                            </td>
-                            {/* Day cells with drag-and-drop */}
-                            <td colSpan={21} className="p-0 relative" style={{ height: '48px' }}>
-                              <div className="absolute inset-0 flex">
-                                {weeks.map((week, weekIdx) => (
-                                  <React.Fragment key={weekIdx}>
-                                    {week.map((day, dayIdx) => (
-                                      <div
-                                        key={day.date}
-                                        className={cn(
-                                          "flex-shrink-0 border-r cursor-pointer hover:bg-muted/30",
-                                          "w-[80px] min-w-[80px] max-w-[80px]",
-                                          day.isWeekend && "bg-muted/20",
-                                          dayIdx === 0 && weekIdx > 0 && "border-l-2 border-border"
-                                        )}
-                                        onMouseDown={(e) => handleMouseDown(e, day.date, undefined, member.id)}
-                                        onMouseEnter={() => handleMouseEnter(day.date, undefined, member.id)}
-                                      />
-                                    ))}
-                                  </React.Fragment>
-                                ))}
-                                {/* Render entry bars */}
-                                {renderEntryBars(undefined, member.id, `none___${member.id}`)}
-                                {/* Render drag preview */}
-                                {renderDragPreview(`none___${member.id}`)}
-                              </div>
-                            </td>
-                          </tr>
                         )
                       })}
                       {users.length === 0 && (
