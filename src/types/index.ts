@@ -79,11 +79,14 @@ export interface Task {
   updated_at: string;
 }
 
+export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'blocked' | 'done';
+
 export interface TimeEntry {
   id: string;
   user_id: string;
   project_id: string;
   task_id?: string;
+  task_number?: string;
   description?: string;
   start_time: string;
   end_time?: string;
@@ -92,6 +95,7 @@ export interface TimeEntry {
   hourly_rate?: number;
   tags?: string[];
   entry_type?: 'planned' | 'reported';
+  task_status?: TaskStatus;
   created_at: string;
   updated_at: string;
   // Legacy compatibility

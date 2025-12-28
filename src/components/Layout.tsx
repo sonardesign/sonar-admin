@@ -15,7 +15,8 @@ import {
   LogOut,
   ChevronUp,
   Settings,
-  Users
+  Users,
+  Kanban
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
@@ -39,11 +40,12 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
   { name: 'Time Tracking', href: '/time-tracking', icon: Timer },
   { name: 'Timetable', href: '/timetable', icon: CalendarDays },
-    { name: 'Projects', href: '/projects', icon: FolderOpen },
-    { name: 'Forecast', href: '/workload', icon: Users },
-    { name: 'Reports', href: '/reports', icon: BarChart3 },
-    { name: 'Summary', href: '/summary', icon: PieChart },
-    { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Tasks', href: '/tasks', icon: Kanban },
+  { name: 'Projects', href: '/projects', icon: FolderOpen },
+  { name: 'Forecast', href: '/workload', icon: Users },
+  { name: 'Reports', href: '/reports', icon: BarChart3 },
+  { name: 'Summary', href: '/summary', icon: PieChart },
+  { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {

@@ -660,10 +660,10 @@ export const Timetable: React.FC = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="taskDescription">Description (Optional)</Label>
+                  <Label htmlFor="taskDescription">Task Title (Optional)</Label>
                   <Textarea
                     id="taskDescription"
-                    placeholder="What did you work on?"
+                    placeholder="Enter task title..."
                     value={taskDescription}
                     onChange={(e) => setTaskDescription(e.target.value)}
                     className="mt-1"
@@ -698,10 +698,10 @@ export const Timetable: React.FC = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="taskDescription">Description (Optional)</Label>
+                  <Label htmlFor="taskDescription">Task Title (Optional)</Label>
                   <Textarea
                     id="taskDescription"
-                    placeholder="What are you planning to work on?"
+                    placeholder="Enter task title..."
                     value={taskDescription}
                     onChange={(e) => setTaskDescription(e.target.value)}
                     className="mt-1"
@@ -761,10 +761,10 @@ export const Timetable: React.FC = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="editTaskDescription">Description</Label>
+                  <Label htmlFor="editTaskDescription">Task Title</Label>
                   <Textarea
                     id="editTaskDescription"
-                    placeholder="What did you work on?"
+                    placeholder="Enter task title..."
                     value={editDescription}
                     onChange={(e) => setEditDescription(e.target.value)}
                     className="mt-1"
@@ -804,10 +804,10 @@ export const Timetable: React.FC = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="editTaskDescription">Description</Label>
+                  <Label htmlFor="editTaskDescription">Task Title</Label>
                   <Textarea
                     id="editTaskDescription"
-                    placeholder="What are you planning to work on?"
+                    placeholder="Enter task title..."
                     value={editDescription}
                     onChange={(e) => setEditDescription(e.target.value)}
                     className="mt-1"
