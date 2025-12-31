@@ -148,7 +148,12 @@ export const Reports: React.FC = () => {
 
   // Filter time entries based on selected filters
   const filteredEntries = timeEntries.filter(entry => {
-    const entryDate = new Date(entry.date || entry.start_time || entry.startTime!)
+    const dateValue = entry.date || entry.start_time || (entry.startTime ? entry.startTime.toISOString() : null)
+    if (!dateValue) return false // Skip entries without any date
+    
+    const entryDate = new Date(dateValue)
+    if (isNaN(entryDate.getTime())) return false // Skip invalid dates
+    
     const isInDateRange = entryDate >= dateRange.from && entryDate <= dateRange.to
     
     // Filter by project
@@ -226,7 +231,7 @@ export const Reports: React.FC = () => {
   }, [chartData])
 
   return (
-    <Page>
+    <Page loading={loading} loadingText="Loading reports...">
       <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
@@ -542,8 +547,8 @@ export const Reports: React.FC = () => {
                           {entry.task || 'No task description'}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {format(new Date(entry.date), 'MMM d, yyyy')} • 
-                          {format(entry.startTime, 'HH:mm')} - {format(entry.endTime, 'HH:mm')}
+                          {entry.date ? format(new Date(entry.date), 'MMM d, yyyy') : 'No date'} • 
+                          {entry.startTime ? format(entry.startTime, 'HH:mm') : 'N/A'} - {entry.endTime ? format(entry.endTime, 'HH:mm') : 'In progress'}
                         </div>
                       </div>
                     </div>

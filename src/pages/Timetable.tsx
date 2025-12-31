@@ -464,19 +464,6 @@ export const Timetable: React.FC = () => {
     setView(Views.WEEK);
   }, []);
 
-  if (loading) {
-    return (
-      <Page>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <Clock className="h-8 w-8 animate-spin mx-auto mb-4" />
-            <p>Loading timetable...</p>
-          </div>
-        </div>
-      </Page>
-    );
-  }
-
   if (error) {
     return (
       <Page>
@@ -492,7 +479,7 @@ export const Timetable: React.FC = () => {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <Page>
+      <Page loading={loading} loadingText="Loading timetable...">
         <div className="flex flex-col h-full gap-6">
           {/* Header with Date Navigation and User Selector */}
           <div className="flex justify-between items-center mb-6">

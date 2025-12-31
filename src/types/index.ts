@@ -88,6 +88,7 @@ export interface TimeEntry {
   task_id?: string;
   task_number?: string;
   description?: string;
+  notes?: string;
   start_time: string;
   end_time?: string;
   duration_minutes?: number;

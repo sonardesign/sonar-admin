@@ -29,7 +29,7 @@ interface PlannedEntry {
 
 export const ForecastPlanning: React.FC = () => {
   const { isAdmin, isManager } = usePermissions()
-  const { projects, users, clients, createTimeEntry, updateTimeEntry, deleteTimeEntry } = useSupabaseAppState()
+  const { projects, users, clients, createTimeEntry, updateTimeEntry, deleteTimeEntry, loading } = useSupabaseAppState()
   
   // View state
   const [view, setView] = useState<'projects' | 'members'>('projects')
@@ -563,10 +563,7 @@ export const ForecastPlanning: React.FC = () => {
   }
 
   return (
-    <Page 
-      title="Forecast" 
-      subtitle="Plan and allocate team resources across projects"
-    >
+    <Page loading={loading} loadingText="Loading forecast...">
       <div className="space-y-6">
         {/* View Tabs and Navigation Controls */}
         <div className="flex items-center justify-between">

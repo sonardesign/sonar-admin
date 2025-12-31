@@ -95,7 +95,7 @@ export const TimeTracking: React.FC = () => {
   const totalTimeToday = todaysEntries.reduce((total, entry) => total + entry.duration, 0);
 
   return (
-    <Page>
+    <Page loading={loading} loadingText="Loading time entries...">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">Time Tracking</h1>
         <p className="text-muted-foreground">
@@ -252,8 +252,8 @@ export const TimeTracking: React.FC = () => {
                           <p className="text-sm text-foreground mb-1">{entry.task}</p>
                         )}
                         <p className="text-sm text-muted-foreground">
-                          {entry.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {' '}
-                          {entry.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {entry.startTime?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'N/A'} - {' '}
+                          {entry.endTime?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'In progress'}
                         </p>
                       </div>
                     </div>

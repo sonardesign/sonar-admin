@@ -14,6 +14,7 @@ import { MonthlyDetail } from './pages/MonthlyDetail'
 import { Settings } from './pages/Settings'
 import { ForecastPlanning } from './pages/WorkloadPlanning'
 import { Tasks } from './pages/Tasks'
+import { TaskDetail } from './pages/TaskDetail'
 import { Loader2 } from 'lucide-react'
 import { Toaster } from 'sonner'
 import './styles/globals.css'
@@ -98,6 +99,11 @@ function App() {
                 <Route path="/tasks" element={
                   <ProtectedRoute>
                     <Tasks />
+                  </ProtectedRoute>
+                } />
+                <Route path="/tasks/:taskNumber/:taskSlug" element={
+                  <ProtectedRoute>
+                    <TaskDetail />
                   </ProtectedRoute>
                 } />
         </Routes>

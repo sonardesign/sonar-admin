@@ -2,13 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/src/assets/njt-favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/src/assets/snr-logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>sonar admin</title>
-    <!-- Poppins font for typography (weights: 400, 500, 600, 700) -->
+    <!-- DM Sans font for typography (weight: 400 only) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400&display=swap" rel="stylesheet">
     <!-- Prevent flash of wrong theme -->
     <script>
       (function() {
@@ -16,6 +16,80 @@
         const theme = stored === 'light' || stored === 'dark' ? stored : 
           (stored === 'system' || !stored) && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         if (theme === 'dark') document.documentElement.classList.add('dark');
+      })();
+    </script>
+    <!-- Early keyboard shortcut handler - runs before React -->
+    <script>
+      (function() {
+        // Store handler function globally so React can call it
+        window.__handleCtrlN = null;
+        
+        // CRITICAL: This must run IMMEDIATELY, before any other scripts
+        // Use immediate execution and register BEFORE DOM is ready
+        function handleKeyDown(e) {
+          // Log ALL Ctrl/Cmd keydowns for debugging
+          if (e.ctrlKey || e.metaKey) {
+            console.log('[Early Handler] Keydown:', e.key, {
+              key: e.key,
+              code: e.code,
+              ctrlKey: e.ctrlKey,
+              metaKey: e.metaKey,
+              shiftKey: e.shiftKey
+            });
+          }
+          
+          // Handle Ctrl+N or Cmd+N
+          if ((e.ctrlKey || e.metaKey) && (e.key === 'n' || e.key === 'N') && !e.shiftKey) {
+            console.log('[Early Handler] 🎯 CTRL+N CAPTURED!');
+            
+            // Check if we're in an input field
+            const target = e.target;
+            const isInput = target && (
+              target.tagName === 'INPUT' ||
+              target.tagName === 'TEXTAREA' ||
+              target.getAttribute('contenteditable') === 'true' ||
+              (target.closest && target.closest('[contenteditable="true"]'))
+            );
+            
+            if (!isInput) {
+              console.log('[Early Handler] ✅ Not in input, PREVENTING DEFAULT');
+              e.preventDefault();
+              e.stopPropagation();
+              e.stopImmediatePropagation();
+              
+              if (window.__handleCtrlN) {
+                console.log('[Early Handler] ✅ Calling React handler');
+                window.__handleCtrlN();
+              } else {
+                console.log('[Early Handler] ⚠️ React handler not ready');
+              }
+              return false;
+            }
+          }
+        }
+        
+        // Register IMMEDIATELY with highest priority
+        // Use all possible methods to catch the event early
+        if (document.addEventListener) {
+          document.addEventListener('keydown', handleKeyDown, { capture: true, passive: false });
+        }
+        if (window.addEventListener) {
+          window.addEventListener('keydown', handleKeyDown, { capture: true, passive: false });
+        }
+        if (document.documentElement) {
+          document.documentElement.addEventListener('keydown', handleKeyDown, { capture: true, passive: false });
+        }
+        
+        // Also try to intercept at the body level when it's ready
+        if (document.body) {
+          document.body.addEventListener('keydown', handleKeyDown, { capture: true, passive: false });
+        } else {
+          document.addEventListener('DOMContentLoaded', function() {
+            if (document.body) {
+              document.body.addEventListener('keydown', handleKeyDown, { capture: true, passive: false });
+            }
+          });
+        }
       })();
     </script>
   </head>

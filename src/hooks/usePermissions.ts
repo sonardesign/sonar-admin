@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import { useAuth } from './useAuth'
 import { useSupabaseAppState } from './useSupabaseAppState'
+import { supabase } from '../lib/supabase'
 import { UserRole } from '../types'
 
 interface UsePermissionsReturn {
@@ -28,12 +29,49 @@ interface UsePermissionsReturn {
 export const usePermissions = (): UsePermissionsReturn => {
   const { user } = useAuth()
   const { users } = useSupabaseAppState()
+  const [directRole, setDirectRole] = useState<UserRole | null>(null)
+
+  // Fallback: fetch current user's profile directly if not found in users list
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (!user?.id) return
+      
+      // Check if user is already in the users list
+      const existingUser = users.find(u => u.id === user.id)
+      if (existingUser?.role) {
+        setDirectRole(null) // Use the role from users list
+        return
+      }
+      
+      // Fetch directly from supabase as fallback
+      try {
+        console.log('🔄 Fetching user role directly...')
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single()
+        
+        if (!error && data?.role) {
+          console.log('✅ Direct role fetch:', data.role)
+          setDirectRole(data.role as UserRole)
+        } else {
+          console.error('❌ Failed to fetch user role:', error)
+        }
+      } catch (err) {
+        console.error('💥 Error fetching user role:', err)
+      }
+    }
+    
+    fetchUserRole()
+  }, [user?.id, users])
 
   const userProfile = useMemo(() => {
     return users.find(u => u.id === user?.id)
   }, [users, user?.id])
 
-  const userRole: UserRole = userProfile?.role || 'member'
+  // Use direct role as fallback if profile not found in users list
+  const userRole: UserRole = userProfile?.role || directRole || 'member'
 
   const isAdmin = userRole === 'admin'
   const isManager = userRole === 'manager'

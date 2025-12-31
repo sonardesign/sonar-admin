@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { Page } from '../components/Page'
@@ -11,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from '../components/ui/label'
 import { Input } from '../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { Kanban, List, Clock, User, Trash2, Plus } from 'lucide-react'
+import { Kanban, List, Clock, User, Plus } from 'lucide-react'
 import { ScrollArea } from '../components/ui/scroll-area'
 import { useSupabaseAppState } from '../hooks/useSupabaseAppState'
 import { supabase } from '../lib/supabase'
@@ -190,24 +191,13 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ column, entries, projects, 
 
 // Main Tasks Page Component
 export const Tasks: React.FC = () => {
+  const navigate = useNavigate()
   const [view, setView] = useState<'kanban' | 'list'>('kanban')
   const [selectedProjectId, setSelectedProjectId] = useState<string>('all')
   const [selectedUserId, setSelectedUserId] = useState<string>('all')
-  const { projects, users, timeEntries, updateTimeEntry, deleteTimeEntry } = useSupabaseAppState()
+  const { projects, users } = useSupabaseAppState()
   const [taskEntries, setTaskEntries] = useState<TimeEntry[]>([])
   const [loading, setLoading] = useState(true)
-
-  // Task edit modal state
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [editingTask, setEditingTask] = useState<TimeEntry | null>(null)
-  const [editForm, setEditForm] = useState({
-    title: '',
-    status: 'backlog' as TaskStatus,
-    userId: '',
-    projectId: '',
-    entryType: 'reported' as 'planned' | 'reported',
-    hours: ''
-  })
 
   // Create task modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -345,7 +335,8 @@ export const Tasks: React.FC = () => {
 
     try {
       const hours = parseFloat(createForm.hours)
-      const durationMinutes = isNaN(hours) ? 60 : hours * 60
+      // duration_minutes must be > 0 or NULL (database constraint)
+      const durationMinutes = isNaN(hours) || hours <= 0 ? 60 : Math.round(hours * 60)
       const now = new Date().toISOString()
 
       const { error } = await supabase
@@ -356,9 +347,10 @@ export const Tasks: React.FC = () => {
           user_id: createForm.userId,
           project_id: createForm.projectId,
           entry_type: createForm.entryType,
-          duration_minutes: durationMinutes,
+          duration_minutes: durationMinutes > 0 ? durationMinutes : 60,
           start_time: now,
-          end_time: now,
+          // Don't set end_time - the database trigger calculates duration from end_time - start_time
+          // Setting end_time = start_time would result in 0 duration which violates the constraint
           is_billable: true
         })
 
@@ -376,84 +368,53 @@ export const Tasks: React.FC = () => {
     }
   }
 
-  // Handle opening task edit modal
+  // Create URL-friendly slug from task title
+  const slugify = (text: string) => {
+    return text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .substring(0, 50) || 'untitled'
+  }
+
+  // Handle clicking on a task - navigate to detail page
   const handleTaskClick = useCallback((entry: TimeEntry) => {
-    setEditingTask(entry)
-    setEditForm({
-      title: entry.description || '',
-      status: entry.task_status || 'backlog',
-      userId: entry.user_id,
-      projectId: entry.project_id,
-      entryType: entry.entry_type || 'reported',
-      hours: entry.duration_minutes ? String(Math.round(entry.duration_minutes / 60 * 10) / 10) : ''
-    })
-    setIsEditModalOpen(true)
-  }, [])
-
-  // Handle saving task edits
-  const handleSaveTask = async () => {
-    if (!editingTask) return
-
+    const taskNumber = entry.task_number || entry.id
+    const taskSlug = slugify(entry.description || 'untitled')
+    
+    // Track recently opened entry
     try {
-      const hours = parseFloat(editForm.hours)
-      const durationMinutes = isNaN(hours) ? 0 : hours * 60
-
-      const { error } = await supabase
-        .from('time_entries')
-        .update({
-          description: editForm.title,
-          task_status: editForm.status,
-          user_id: editForm.userId,
-          project_id: editForm.projectId,
-          entry_type: editForm.entryType,
-          duration_minutes: durationMinutes
-        })
-        .eq('id', editingTask.id)
-
-      if (error) {
-        console.error('Error updating task:', error)
-        toast.error('Failed to update task')
-      } else {
-        toast.success('Task updated')
-        setIsEditModalOpen(false)
-        setEditingTask(null)
-        await loadTaskEntries()
-      }
+      const recent = JSON.parse(localStorage.getItem('recentEntries') || '[]') as Array<{
+        id: string;
+        task_number?: string;
+        description?: string;
+        openedAt: number;
+      }>;
+      
+      // Remove if already exists
+      const filtered = recent.filter(e => e.id !== entry.id);
+      
+      // Add to beginning
+      filtered.unshift({
+        id: entry.id,
+        task_number: entry.task_number,
+        description: entry.description,
+        openedAt: Date.now()
+      });
+      
+      // Keep only last 20
+      const limited = filtered.slice(0, 20);
+      
+      localStorage.setItem('recentEntries', JSON.stringify(limited));
     } catch (error) {
-      console.error('Error updating task:', error)
-      toast.error('Failed to update task')
+      console.error('Error tracking entry:', error);
     }
-  }
-
-  // Handle deleting task
-  const handleDeleteTask = async () => {
-    if (!editingTask) return
-
-    if (!confirm('Are you sure you want to delete this task?')) return
-
-    try {
-      const { error } = await supabase
-        .from('time_entries')
-        .delete()
-        .eq('id', editingTask.id)
-
-      if (error) {
-        console.error('Error deleting task:', error)
-        toast.error('Failed to delete task')
-      } else {
-        toast.success('Task deleted')
-        setIsEditModalOpen(false)
-        setEditingTask(null)
-        await loadTaskEntries()
-      }
-    } catch (error) {
-      console.error('Error deleting task:', error)
-      toast.error('Failed to delete task')
-    }
-  }
+    
+    navigate(`/tasks/${taskNumber}/${taskSlug}`)
+  }, [navigate])
 
   return (
-    <Page title="Tasks" subtitle="Manage and track your work items">
+    <Page loading={loading} loadingText="Loading tasks...">
       <div className="space-y-4">
         {/* View Toggle and Filters */}
         <div className="flex items-center justify-between gap-4">
@@ -670,152 +631,6 @@ export const Tasks: React.FC = () => {
               <Plus className="h-4 w-4 mr-2" />
               Create Task
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Task Modal */}
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Edit Task</DialogTitle>
-            <DialogDescription>
-              Update task details
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            {/* Title */}
-            <div className="space-y-2">
-              <Label htmlFor="taskTitle">Title</Label>
-              <Input
-                id="taskTitle"
-                placeholder="Enter task title..."
-                value={editForm.title}
-                onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
-              />
-            </div>
-
-            {/* Status */}
-            <div className="space-y-2">
-              <Label htmlFor="taskStatus">Status</Label>
-              <Select
-                value={editForm.status}
-                onValueChange={(value: TaskStatus) => setEditForm(prev => ({ ...prev, status: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {COLUMNS.map((col) => (
-                    <SelectItem key={col.id} value={col.id}>
-                      <div className="flex items-center gap-2">
-                        <div className={cn("h-2 w-2 rounded-full", col.color)} />
-                        {col.title}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Assignee */}
-            <div className="space-y-2">
-              <Label htmlFor="taskAssignee">Assignee</Label>
-              <Select
-                value={editForm.userId}
-                onValueChange={(value) => setEditForm(prev => ({ ...prev, userId: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select assignee..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Project */}
-            <div className="space-y-2">
-              <Label htmlFor="taskProject">Project</Label>
-              <Select
-                value={editForm.projectId}
-                onValueChange={(value) => setEditForm(prev => ({ ...prev, projectId: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select project..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.filter(p => !p.is_archived && !p.archived).map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: project.color }}
-                        />
-                        {project.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Entry Type */}
-            <div className="space-y-2">
-              <Label htmlFor="taskEntryType">Type</Label>
-              <Select
-                value={editForm.entryType}
-                onValueChange={(value: 'planned' | 'reported') => setEditForm(prev => ({ ...prev, entryType: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="reported">Reported</SelectItem>
-                  <SelectItem value="planned">Planned</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Hours */}
-            <div className="space-y-2">
-              <Label htmlFor="taskHours">Hours</Label>
-              <Input
-                id="taskHours"
-                type="number"
-                min="0"
-                step="0.5"
-                placeholder="Enter hours..."
-                value={editForm.hours}
-                onChange={(e) => setEditForm(prev => ({ ...prev, hours: e.target.value }))}
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="flex justify-between">
-            <Button
-              variant="destructive"
-              onClick={handleDeleteTask}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </Button>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsEditModalOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleSaveTask}>
-                Save Changes
-              </Button>
-            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

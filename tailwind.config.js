@@ -18,7 +18,7 @@ export default {
       },
     },
     fontFamily: {
-      sans: ['Poppins', 'system-ui', 'sans-serif'],
+      sans: ['DM Sans', 'system-ui', 'sans-serif'],
     },
     extend: {
       colors: {
