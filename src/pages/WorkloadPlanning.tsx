@@ -33,6 +33,7 @@ export const ForecastPlanning: React.FC = () => {
   
   // View state
   const [view, setView] = useState<'projects' | 'members'>('projects')
+  const [viewType, setViewType] = useState<'week' | 'mid-week' | 'month'>('mid-week')
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set())
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set())
   const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set())
@@ -67,16 +68,49 @@ export const ForecastPlanning: React.FC = () => {
   const [isCreating, setIsCreating] = useState(false)
   const [creationProgress, setCreationProgress] = useState(0)
 
-  // Generate weeks (3 weeks view starting from current day)
+  // Generate weeks based on view type
   const weeks = useMemo(() => {
     const result = []
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const todayStr = today.toISOString().split('T')[0]
     
-    for (let weekOffset = 0; weekOffset < 3; weekOffset++) {
-      const weekStart = new Date(currentWeekStart)
-      weekStart.setDate(currentWeekStart.getDate() + weekOffset * 7)
+    let startDate: Date
+    let numberOfWeeks = 3 // mid-week (default)
+    
+    if (viewType === 'week') {
+      numberOfWeeks = 1
+      // Find Monday of the current week
+      startDate = new Date(currentWeekStart)
+      const dayOfWeek = startDate.getDay() // 0 = Sunday, 1 = Monday, etc.
+      // Calculate days to subtract to get to Monday
+      // If Sunday (0), go back 6 days; otherwise go back (dayOfWeek - 1) days
+      const daysToMonday = dayOfWeek === 0 ? -6 : -(dayOfWeek - 1)
+      startDate.setDate(startDate.getDate() + daysToMonday)
+    } else if (viewType === 'month') {
+      // Start from the first day of the month
+      startDate = new Date(currentWeekStart.getFullYear(), currentWeekStart.getMonth(), 1)
+      // Get the last day of the month
+      const monthEnd = new Date(currentWeekStart.getFullYear(), currentWeekStart.getMonth() + 1, 0)
+      const daysInMonth = monthEnd.getDate()
+      // Calculate how many weeks we need (including partial weeks)
+      const firstDayOfWeek = startDate.getDay() // 0 = Sunday, 1 = Monday, etc.
+      const totalDays = firstDayOfWeek + daysInMonth
+      numberOfWeeks = Math.ceil(totalDays / 7)
+    } else {
+      // mid-week
+      startDate = new Date(currentWeekStart)
+    }
+    
+    for (let weekOffset = 0; weekOffset < numberOfWeeks; weekOffset++) {
+      const weekStart = new Date(startDate)
+      weekStart.setDate(startDate.getDate() + weekOffset * 7)
+      
+      // For month view, adjust to start of week (Sunday)
+      if (viewType === 'month' && weekOffset === 0) {
+        const dayOfWeek = weekStart.getDay()
+        weekStart.setDate(weekStart.getDate() - dayOfWeek)
+      }
       
       const days = []
       for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
@@ -84,18 +118,25 @@ export const ForecastPlanning: React.FC = () => {
         date.setDate(weekStart.getDate() + dayOffset)
         const dateStr = date.toISOString().split('T')[0]
         
+        // For month view, mark days outside the month
+        const isInMonth = viewType === 'month' 
+          ? date.getMonth() === currentWeekStart.getMonth()
+          : true
+        
         days.push({
           date: dateStr,
           dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
           dayNumber: date.getDate(),
           isWeekend: date.getDay() === 0 || date.getDay() === 6,
-          isToday: dateStr === todayStr
+          isToday: dateStr === todayStr,
+          isInMonth: isInMonth
         })
       }
+      
       result.push(days)
     }
     return result
-  }, [currentWeekStart])
+  }, [currentWeekStart, viewType])
 
   const allDays = weeks.flat()
 
@@ -132,6 +173,22 @@ export const ForecastPlanning: React.FC = () => {
   useEffect(() => {
     loadProjectMembers()
   }, [activeProjects])
+
+  // Align to Monday when switching to week view
+  useEffect(() => {
+    if (viewType === 'week') {
+      setCurrentWeekStart(prev => {
+        const alignedDate = new Date(prev)
+        const dayOfWeek = alignedDate.getDay()
+        const daysToMonday = dayOfWeek === 0 ? -6 : -(dayOfWeek - 1)
+        if (daysToMonday !== 0) {
+          alignedDate.setDate(alignedDate.getDate() + daysToMonday)
+          return alignedDate
+        }
+        return prev
+      })
+    }
+  }, [viewType]) // Only run when viewType changes
 
   const loadProjectMembers = async () => {
     try {
@@ -254,19 +311,51 @@ export const ForecastPlanning: React.FC = () => {
   // Navigation
   const goToPreviousWeek = () => {
     const newStart = new Date(currentWeekStart)
-    newStart.setDate(newStart.getDate() - 7)
+    if (viewType === 'month') {
+      newStart.setMonth(newStart.getMonth() - 1)
+      newStart.setDate(1) // Start of month
+    } else if (viewType === 'week') {
+      // Move to previous Monday
+      newStart.setDate(newStart.getDate() - 7)
+      const dayOfWeek = newStart.getDay()
+      const daysToMonday = dayOfWeek === 0 ? -6 : -(dayOfWeek - 1)
+      newStart.setDate(newStart.getDate() + daysToMonday)
+    } else {
+      // mid-week
+      newStart.setDate(newStart.getDate() - 7)
+    }
     setCurrentWeekStart(newStart)
   }
 
   const goToNextWeek = () => {
     const newStart = new Date(currentWeekStart)
-    newStart.setDate(newStart.getDate() + 7)
+    if (viewType === 'month') {
+      newStart.setMonth(newStart.getMonth() + 1)
+      newStart.setDate(1) // Start of month
+    } else if (viewType === 'week') {
+      // Move to next Monday
+      newStart.setDate(newStart.getDate() + 7)
+      const dayOfWeek = newStart.getDay()
+      const daysToMonday = dayOfWeek === 0 ? -6 : -(dayOfWeek - 1)
+      newStart.setDate(newStart.getDate() + daysToMonday)
+    } else {
+      // mid-week
+      newStart.setDate(newStart.getDate() + 7)
+    }
     setCurrentWeekStart(newStart)
   }
 
   const goToToday = () => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
+    
+    // If in week view, align to Monday of the current week
+    if (viewType === 'week') {
+      const dayOfWeek = today.getDay()
+      const daysToMonday = dayOfWeek === 0 ? -6 : -(dayOfWeek - 1)
+      today.setDate(today.getDate() + daysToMonday)
+    }
+    
     setCurrentWeekStart(today)
   }
 
@@ -501,6 +590,7 @@ export const ForecastPlanning: React.FC = () => {
   const renderEntryBars = (projectId?: string, userId?: string, rowKey?: string) => {
     const entries = getEntriesForRow(projectId, userId)
     const project = projectId ? projects.find(p => p.id === projectId) : null
+    const totalDays = allDays.length
     
     return entries.map(entry => {
       const startDate = entry.start_time.split('T')[0]
@@ -514,6 +604,24 @@ export const ForecastPlanning: React.FC = () => {
       const projectColor = project?.color || projects.find(p => p.id === entry.project_id)?.color || '#3f69dc'
       const projectName = project?.name || projects.find(p => p.id === entry.project_id)?.name || 'Unknown'
       
+      // Calculate positioning based on view type
+      let style: { left: string; width: string }
+      if (viewType === 'mid-week') {
+        // Fixed width positioning for mid-week (scrollable)
+        style = {
+          left: `${startIdx * 80}px`,
+          width: `${(endIdx - startIdx + 1) * 80}px`
+        }
+      } else {
+        // Percentage-based positioning for flexible widths (week/month)
+        const leftPercent = (startIdx / totalDays) * 100
+        const widthPercent = ((endIdx - startIdx + 1) / totalDays) * 100
+        style = {
+          left: `${leftPercent}%`,
+          width: `${widthPercent}%`
+        }
+      }
+      
       return (
         <TimeEntryBar
           key={entry.id}
@@ -521,10 +629,7 @@ export const ForecastPlanning: React.FC = () => {
           projectColor={projectColor}
           projectName={projectName}
           mode="forecast"
-          style={{
-            left: `${startIdx * 80}px`,
-            width: `${(endIdx - startIdx + 1) * 80}px`
-          }}
+          style={style}
           onMouseDown={(e) => handleMouseDown(e, startDate, projectId, userId, entry)}
           onClick={() => handleEntryClick(entry)}
         />
@@ -537,14 +642,31 @@ export const ForecastPlanning: React.FC = () => {
     const preview = getDragPreview()
     if (!preview || preview.rowKey !== rowKey) return null
     
+    // Calculate positioning based on view type
+    let style: { left: string; width: string; zIndex: number }
+    if (viewType === 'mid-week') {
+      // Fixed width positioning for mid-week (scrollable)
+      style = {
+        left: `${preview.startIdx * 80}px`,
+        width: `${(preview.endIdx - preview.startIdx + 1) * 80}px`,
+        zIndex: 10
+      }
+    } else {
+      // Percentage-based positioning for flexible widths (week/month)
+      const totalDays = allDays.length
+      const leftPercent = (preview.startIdx / totalDays) * 100
+      const widthPercent = ((preview.endIdx - preview.startIdx + 1) / totalDays) * 100
+      style = {
+        left: `${leftPercent}%`,
+        width: `${widthPercent}%`,
+        zIndex: 10
+      }
+    }
+    
     return (
       <div
         className="absolute inset-y-1 bg-primary/30 border-2 border-primary rounded pointer-events-none"
-        style={{
-          left: `${preview.startIdx * 80}px`,
-          width: `${(preview.endIdx - preview.startIdx + 1) * 80}px`,
-          zIndex: 10
-        }}
+        style={style}
       />
     )
   }
@@ -580,19 +702,31 @@ export const ForecastPlanning: React.FC = () => {
             </TabsList>
           </Tabs>
 
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={goToPreviousWeek}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={goToToday}>
-              Today
-            </Button>
-            <Button variant="outline" size="sm" onClick={goToNextWeek}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <span className="text-sm font-medium ml-2">
-              {currentWeekStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-            </span>
+          <div className="flex items-center gap-4">
+            {/* View Type Tabs */}
+            <Tabs value={viewType} onValueChange={(v) => setViewType(v as 'week' | 'mid-week' | 'month')}>
+              <TabsList className="grid grid-cols-3">
+                <TabsTrigger value="week" className="text-xs">Week</TabsTrigger>
+                <TabsTrigger value="mid-week" className="text-xs">Mid-Week</TabsTrigger>
+                <TabsTrigger value="month" className="text-xs">Month</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {/* Paginator */}
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={goToPreviousWeek}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={goToToday}>
+                Today
+              </Button>
+              <Button variant="outline" size="sm" onClick={goToNextWeek}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <span className="text-sm font-medium ml-2">
+                {currentWeekStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -610,13 +744,16 @@ export const ForecastPlanning: React.FC = () => {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-auto h-[calc(100vh-120px)]">
-                  <table className="w-full border-collapse">
+                  <table 
+                    className="border-collapse table-auto"
+                    style={viewType === 'mid-week' ? { minWidth: `${320 + 80 + (allDays.length * 80)}px` } : { width: '100%' }}
+                  >
                     <thead className="sticky top-0 z-20">
                       <tr className="border-b bg-muted/50">
-                        <th className="sticky left-0 z-30 bg-muted/50 px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">
+                        <th className="sticky left-0 z-30 bg-muted/50 px-4 py-3 text-left text-sm font-semibold whitespace-nowrap w-[320px] min-w-[320px]">
                           Project
                         </th>
-                        <th className="px-3 py-3 text-center text-xs font-semibold border-r-2 border-border bg-muted/50 w-20">
+                        <th className="px-3 py-3 text-center text-xs font-semibold border-r-2 border-border bg-muted/50 w-20 min-w-[80px] max-w-[80px]">
                           <div className="leading-tight">
                             Total<br/>Scheduled
                           </div>
@@ -628,10 +765,11 @@ export const ForecastPlanning: React.FC = () => {
                                 key={day.date}
                                 className={cn(
                                   "px-2 py-3 text-center text-xs font-medium relative bg-muted/50",
-                                  "w-[80px] min-w-[80px] max-w-[80px]",
+                                  viewType === 'mid-week' ? "w-[80px] min-w-[80px] max-w-[80px]" : "min-w-[60px]",
                                   day.isWeekend && "bg-muted/70",
                                   day.isToday && "bg-primary/20",
-                                  dayIdx === 0 && weekIdx > 0 && "border-l-2 border-border"
+                                  dayIdx === 0 && weekIdx > 0 && "border-l-2 border-border",
+                                  viewType === 'month' && day.isInMonth === false && "opacity-40"
                                 )}
                               >
                                 <div className={cn(day.isToday && "text-primary font-semibold")}>{day.dayName}</div>
@@ -660,7 +798,7 @@ export const ForecastPlanning: React.FC = () => {
                             {/* Client Row */}
                             <tr className="border-b bg-muted/30 hover:bg-muted/40">
                               <td 
-                                className="sticky left-0 z-10 bg-muted/30 px-4 py-3 text-sm font-semibold border-r cursor-pointer whitespace-nowrap"
+                                className="sticky left-0 z-10 bg-muted/30 px-4 py-3 text-sm font-semibold border-r cursor-pointer whitespace-nowrap w-[320px] min-w-[320px]"
                                 onClick={() => toggleClient(client.id)}
                               >
                                 <div className="flex items-center justify-between gap-2">
@@ -675,11 +813,11 @@ export const ForecastPlanning: React.FC = () => {
                                   )}
                                 </div>
                               </td>
-                              <td className="px-3 py-3 text-center text-sm font-semibold border-r-2 border-border bg-muted/30">
+                              <td className="px-3 py-3 text-center text-sm font-semibold border-r-2 border-border bg-muted/30 w-20 min-w-[80px] max-w-[80px]">
                                 {clientTotalScheduled > 0 ? `${clientTotalScheduled}h` : '-'}
                               </td>
                               {/* Empty day cells for client row */}
-                              <td colSpan={21} className="p-0 bg-muted/30" style={{ height: '48px' }}>
+                              <td colSpan={allDays.length} className="p-0 bg-muted/30" style={{ height: '48px' }}>
                                 <div className="flex h-full">
                                   {weeks.map((week, weekIdx) => (
                                     <React.Fragment key={weekIdx}>
@@ -687,8 +825,7 @@ export const ForecastPlanning: React.FC = () => {
                                         <div
                                           key={day.date}
                                           className={cn(
-                                            "flex-shrink-0 border-r",
-                                            "w-[80px] min-w-[80px] max-w-[80px]",
+                                            viewType === 'mid-week' ? "w-[80px] min-w-[80px] max-w-[80px] border-r" : "flex-1 border-r min-w-[60px]",
                                             day.isWeekend && "bg-muted/40",
                                             dayIdx === 0 && weekIdx > 0 && "border-l-2 border-border"
                                           )}
@@ -711,7 +848,7 @@ export const ForecastPlanning: React.FC = () => {
                                   {/* Project Row */}
                                   <tr className="border-b hover:bg-muted/20">
                                     <td 
-                                      className="sticky left-0 z-10 bg-background px-4 py-3 text-sm font-medium border-r cursor-pointer whitespace-nowrap"
+                                      className="sticky left-0 z-10 bg-background px-4 py-3 text-sm font-medium border-r cursor-pointer whitespace-nowrap w-[320px] min-w-[320px]"
                                       onClick={() => toggleProject(project.id)}
                                     >
                                       <div className="flex items-center justify-between gap-2 pl-4">
@@ -729,11 +866,11 @@ export const ForecastPlanning: React.FC = () => {
                                         )}
                                       </div>
                                     </td>
-                                    <td className="px-3 py-3 text-center text-sm font-semibold border-r-2 border-border bg-muted/20">
+                                    <td className="px-3 py-3 text-center text-sm font-semibold border-r-2 border-border bg-muted/20 w-20 min-w-[80px] max-w-[80px]">
                                       {totalScheduled > 0 ? `${totalScheduled}h` : '-'}
                                     </td>
                                     {/* Day cells with drag-and-drop */}
-                                    <td colSpan={21} className="p-0 relative" style={{ height: '48px' }}>
+                                    <td colSpan={allDays.length} className="p-0 relative" style={{ height: '48px' }}>
                                       <div className="absolute inset-0 flex">
                                         {weeks.map((week, weekIdx) => (
                                           <React.Fragment key={weekIdx}>
@@ -741,8 +878,7 @@ export const ForecastPlanning: React.FC = () => {
                                               <div
                                                 key={day.date}
                                                 className={cn(
-                                                  "flex-shrink-0 border-r cursor-pointer hover:bg-muted/30",
-                                                  "w-[80px] min-w-[80px] max-w-[80px]",
+                                                  "flex-1 border-r cursor-pointer hover:bg-muted/30 min-w-[60px]",
                                                   day.isWeekend && "bg-muted/20",
                                                   dayIdx === 0 && weekIdx > 0 && "border-l-2 border-border"
                                                 )}
@@ -766,7 +902,7 @@ export const ForecastPlanning: React.FC = () => {
                                     
                                     return (
                                       <tr key={`${project.id}-${member.id}`} className="border-b hover:bg-muted/20 bg-muted/5">
-                                        <td className="sticky left-0 z-10 bg-muted/5 px-4 py-2 text-sm border-r whitespace-nowrap">
+                                        <td className="sticky left-0 z-10 bg-muted/5 px-4 py-2 text-sm border-r whitespace-nowrap w-[320px] min-w-[320px]">
                                           <div className="flex items-center gap-2 pl-10">
                                             <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold flex-shrink-0">
                                               {member.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '?'}
@@ -774,11 +910,11 @@ export const ForecastPlanning: React.FC = () => {
                                             <span className="text-muted-foreground">{member.full_name}</span>
                                           </div>
                                         </td>
-                                        <td className="px-3 py-2 text-center text-sm font-medium border-r-2 border-border bg-muted/10">
+                                        <td className="px-3 py-2 text-center text-sm font-medium border-r-2 border-border bg-muted/10 w-20 min-w-[80px] max-w-[80px]">
                                           {memberTotalScheduled > 0 ? `${memberTotalScheduled}h` : '-'}
                                         </td>
                                         {/* Day cells with drag-and-drop */}
-                                        <td colSpan={21} className="p-0 relative" style={{ height: '40px' }}>
+                                        <td colSpan={allDays.length} className="p-0 relative" style={{ height: '40px' }}>
                                           <div className="absolute inset-0 flex">
                                             {weeks.map((week, weekIdx) => (
                                               <React.Fragment key={weekIdx}>
@@ -786,8 +922,7 @@ export const ForecastPlanning: React.FC = () => {
                                                   <div
                                                     key={day.date}
                                                     className={cn(
-                                                      "flex-shrink-0 border-r cursor-pointer hover:bg-muted/30",
-                                                      "w-[80px] min-w-[80px] max-w-[80px]",
+                                                      "flex-1 border-r cursor-pointer hover:bg-muted/30 min-w-[60px]",
                                                       day.isWeekend && "bg-muted/20",
                                                       dayIdx === 0 && weekIdx > 0 && "border-l-2 border-border"
                                                     )}
@@ -831,10 +966,13 @@ export const ForecastPlanning: React.FC = () => {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-auto h-[calc(100vh-120px)]">
-                  <table className="w-full border-collapse">
+                  <table 
+                    className="border-collapse table-auto"
+                    style={viewType === 'mid-week' ? { minWidth: `${320 + 80 + (allDays.length * 80)}px` } : { width: '100%' }}
+                  >
                     <thead className="sticky top-0 z-20">
                       <tr className="border-b bg-muted/50">
-                        <th className="sticky left-0 z-30 bg-muted/50 px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">
+                        <th className="sticky left-0 z-30 bg-muted/50 px-4 py-3 text-left text-sm font-semibold whitespace-nowrap w-[320px] min-w-[320px]">
                           Team Member
                         </th>
                         <th className="px-3 py-3 text-center text-xs font-semibold border-r-2 border-border bg-muted/50 w-20">
@@ -852,7 +990,8 @@ export const ForecastPlanning: React.FC = () => {
                                   "w-[80px] min-w-[80px] max-w-[80px]",
                                   day.isWeekend && "bg-muted/70",
                                   day.isToday && "bg-primary/20",
-                                  dayIdx === 0 && weekIdx > 0 && "border-l-2 border-border"
+                                  dayIdx === 0 && weekIdx > 0 && "border-l-2 border-border",
+                                  viewType === 'month' && day.isInMonth === false && "opacity-40"
                                 )}
                               >
                                 <div className={cn(day.isToday && "text-primary font-semibold")}>{day.dayName}</div>
@@ -877,7 +1016,7 @@ export const ForecastPlanning: React.FC = () => {
                             {/* Member Row */}
                             <tr className="border-b bg-muted/30 hover:bg-muted/40">
                               <td 
-                                className="sticky left-0 z-10 bg-muted/30 px-4 py-3 text-sm font-semibold border-r cursor-pointer whitespace-nowrap"
+                                className="sticky left-0 z-10 bg-muted/30 px-4 py-3 text-sm font-semibold border-r cursor-pointer whitespace-nowrap w-[320px] min-w-[320px]"
                                 onClick={() => toggleMember(member.id)}
                               >
                                 <div className="flex items-center justify-between gap-2">
@@ -895,11 +1034,11 @@ export const ForecastPlanning: React.FC = () => {
                                   )}
                                 </div>
                               </td>
-                              <td className="px-3 py-3 text-center text-sm font-semibold border-r-2 border-border bg-muted/30">
+                              <td className="px-3 py-3 text-center text-sm font-semibold border-r-2 border-border bg-muted/30 w-20 min-w-[80px] max-w-[80px]">
                                 {totalScheduled > 0 ? `${totalScheduled}h` : '-'}
                               </td>
                               {/* Empty day cells for member row */}
-                              <td colSpan={21} className="p-0 bg-muted/30" style={{ height: '48px' }}>
+                              <td colSpan={allDays.length} className="p-0 bg-muted/30" style={{ height: '48px' }}>
                                 <div className="flex h-full">
                                   {weeks.map((week, weekIdx) => (
                                     <React.Fragment key={weekIdx}>
@@ -907,8 +1046,7 @@ export const ForecastPlanning: React.FC = () => {
                                         <div
                                           key={day.date}
                                           className={cn(
-                                            "flex-shrink-0 border-r",
-                                            "w-[80px] min-w-[80px] max-w-[80px]",
+                                            viewType === 'mid-week' ? "w-[80px] min-w-[80px] max-w-[80px] border-r" : "flex-1 border-r min-w-[60px]",
                                             day.isWeekend && "bg-muted/40",
                                             dayIdx === 0 && weekIdx > 0 && "border-l-2 border-border"
                                           )}
@@ -926,7 +1064,7 @@ export const ForecastPlanning: React.FC = () => {
                               
                               return (
                                 <tr key={`${member.id}-${project.id}`} className="border-b hover:bg-muted/20 bg-muted/5">
-                                  <td className="sticky left-0 z-10 bg-muted/5 px-4 py-2 text-sm border-r whitespace-nowrap">
+                                  <td className="sticky left-0 z-10 bg-muted/5 px-4 py-2 text-sm border-r whitespace-nowrap w-[320px] min-w-[320px]">
                                     <div className="flex items-center gap-2 pl-6">
                                       <div
                                         className="h-3 w-3 rounded-full flex-shrink-0"
@@ -935,11 +1073,11 @@ export const ForecastPlanning: React.FC = () => {
                                       <span className="text-muted-foreground">{project.name}</span>
                                     </div>
                                   </td>
-                                  <td className="px-3 py-2 text-center text-sm font-medium border-r-2 border-border bg-muted/10">
+                                  <td className="px-3 py-2 text-center text-sm font-medium border-r-2 border-border bg-muted/10 w-20 min-w-[80px] max-w-[80px]">
                                     {projectTotalScheduled > 0 ? `${projectTotalScheduled}h` : '-'}
                                   </td>
                                   {/* Day cells with drag-and-drop */}
-                                  <td colSpan={21} className="p-0 relative" style={{ height: '40px' }}>
+                                  <td colSpan={allDays.length} className="p-0 relative" style={{ height: '40px' }}>
                                     <div className="absolute inset-0 flex">
                                       {weeks.map((week, weekIdx) => (
                                         <React.Fragment key={weekIdx}>
@@ -947,8 +1085,7 @@ export const ForecastPlanning: React.FC = () => {
                                             <div
                                               key={day.date}
                                               className={cn(
-                                                "flex-shrink-0 border-r cursor-pointer hover:bg-muted/30",
-                                                "w-[80px] min-w-[80px] max-w-[80px]",
+                                                "flex-1 border-r cursor-pointer hover:bg-muted/30 min-w-[60px]",
                                                 day.isWeekend && "bg-muted/20",
                                                 dayIdx === 0 && weekIdx > 0 && "border-l-2 border-border"
                                               )}

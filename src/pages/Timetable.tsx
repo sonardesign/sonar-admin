@@ -67,17 +67,29 @@ const CustomEvent = ({ event }: { event: TimeEntry }) => {
       lineHeight: '1.4',
       position: 'relative'
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-        {isFuture && (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {isFuture && (
+            <div style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              backgroundColor: projectColor,
+              flexShrink: 0
+            }} />
+          )}
+          <div>{event.resource?.projectName}</div>
+        </div>
+        {event.resource?.description && (
           <div style={{
-            width: '6px',
-            height: '6px',
-            borderRadius: '50%',
-            backgroundColor: projectColor,
-            flexShrink: 0
-          }} />
+            fontSize: '11px',
+            fontWeight: '400',
+            opacity: 0.8,
+            paddingLeft: isFuture ? '12px' : '0'
+          }}>
+            {event.resource.description}
+          </div>
         )}
-        <div>{event.resource?.projectName}</div>
       </div>
       <div style={{ 
         textAlign: 'right',

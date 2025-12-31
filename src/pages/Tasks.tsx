@@ -19,6 +19,7 @@ import { supabase } from '../lib/supabase'
 import { toast } from 'sonner'
 import { cn } from '../lib/utils'
 import { TaskStatus, TimeEntry } from '../types'
+import { useAppStore } from '../store'
 
 // Kanban column definitions
 const COLUMNS: { id: TaskStatus; title: string; color: string }[] = [
@@ -193,8 +194,13 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ column, entries, projects, 
 export const Tasks: React.FC = () => {
   const navigate = useNavigate()
   const [view, setView] = useState<'kanban' | 'list'>('kanban')
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('all')
-  const [selectedUserId, setSelectedUserId] = useState<string>('all')
+  
+  // Get filters from store - select individually to avoid re-render issues
+  const selectedProjectId = useAppStore((state) => state.kanbanFilters.selectedProjectId)
+  const selectedUserId = useAppStore((state) => state.kanbanFilters.selectedUserId)
+  const setKanbanProjectFilter = useAppStore((state) => state.setKanbanProjectFilter)
+  const setKanbanUserFilter = useAppStore((state) => state.setKanbanUserFilter)
+  
   const { projects, users } = useSupabaseAppState()
   const [taskEntries, setTaskEntries] = useState<TimeEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -436,7 +442,7 @@ export const Tasks: React.FC = () => {
             <SimpleCombobox
               options={projectOptions}
               value={selectedProjectId}
-              onValueChange={setSelectedProjectId}
+              onValueChange={setKanbanProjectFilter}
               placeholder="Filter by project..."
               searchPlaceholder="Search projects..."
               emptyText="No projects found."
@@ -447,7 +453,7 @@ export const Tasks: React.FC = () => {
             <SimpleCombobox
               options={userOptions}
               value={selectedUserId}
-              onValueChange={setSelectedUserId}
+              onValueChange={setKanbanUserFilter}
               placeholder="Filter by user..."
               searchPlaceholder="Search users..."
               emptyText="No users found."
