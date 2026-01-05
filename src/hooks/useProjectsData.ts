@@ -77,15 +77,14 @@ export const useProjectsData = () => {
         setClients(clientsData || [])
       }
 
-      // Load projects (simplified query to debug 500 error)
+      // Load projects
       console.log('📁 Loading projects...')
-      console.log('📁 Attempting simple projects query...')
+      console.log('📁 Attempting projects query...')
       
-      // Try the simplest possible query first
       const { data: projectsData, error: projectsError } = await supabase
         .from('projects')
-        .select('id, name, client_id, color, status, is_archived, created_at, updated_at')
-        .limit(10)
+        .select('id, name, client_id, color, status, is_archived, description, created_by, created_at, updated_at')
+        .order('created_at', { ascending: false })
       
       console.log('📁 Raw projects response:', { data: projectsData, error: projectsError })
       
@@ -98,45 +97,8 @@ export const useProjectsData = () => {
           code: projectsError.code
         })
         
-        // Try an even simpler query as fallback
-        console.log('🔄 Trying fallback query...')
-        try {
-          const { data: fallbackData, error: fallbackError } = await supabase
-            .from('projects')
-            .select('id, name')
-            .limit(5)
-          
-          if (fallbackError) {
-            console.error('❌ Fallback query also failed:', fallbackError)
-            setError(`Failed to load projects: ${projectsError.message}`)
-          } else {
-            console.log('✅ Fallback query succeeded:', fallbackData)
-            // Use minimal data
-            const minimalProjects: Project[] = (fallbackData || []).map((project: any) => ({
-              id: project.id,
-              name: project.name,
-              description: '',
-              color: '#3b82f6',
-              client_id: '',
-              client_name: 'Unknown Client',
-              status: 'active',
-              is_archived: false,
-              created_by: '',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              // Legacy compatibility
-              clientId: '',
-              clientName: 'Unknown Client',
-              archived: false,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            }))
-            setProjects(minimalProjects)
-          }
-        } catch (fallbackErr) {
-          console.error('💥 Fallback query exception:', fallbackErr)
-          setError(`Failed to load projects: Database connection issue`)
-        }
+        setError(`Failed to load projects: ${projectsError.message}`)
+        setProjects([]) // Set empty array on error
       } else {
         console.log('✅ Projects loaded successfully:', projectsData?.length || 0, 'records')
         console.log('✅ Projects data:', projectsData)
@@ -145,7 +107,7 @@ export const useProjectsData = () => {
         const transformedProjects: Project[] = (projectsData || []).map((project: any) => {
           // Find the client for this project
           const client = clientsData?.find(c => c.id === project.client_id)
-          const clientName = client?.name || 'Unknown Client'
+          const clientName = client?.name || 'No Client'
           
           return {
             id: project.id,
@@ -303,9 +265,28 @@ export const useProjectsData = () => {
       if (data) {
         console.log('✅ Project created:', data.name)
         
+        // Add creator as project member with owner role so they can see and manage the project
+        const { error: memberError } = await supabase
+          .from('project_members')
+          .insert([{
+            project_id: data.id,
+            user_id: user.id,
+            role: 'owner',
+            can_edit_project: true,
+            can_view_reports: true,
+            added_by: user.id,
+          }])
+
+        if (memberError) {
+          console.error('⚠️ Warning: Could not add creator as project member:', memberError)
+          // Don't fail the project creation if member addition fails
+        } else {
+          console.log('✅ Creator added as project member')
+        }
+        
         // Find the client for this project
         const client = clients.find(c => c.id === data.client_id)
-        const clientName = client?.name || 'Unknown Client'
+        const clientName = client?.name || 'No Client'
         
         // Transform the data to match our Project interface
         const transformedProject: Project = {
@@ -328,7 +309,10 @@ export const useProjectsData = () => {
           updatedAt: data.updated_at
         }
         
-        setProjects(prev => [...prev, transformedProject])
+        // Reload all projects to ensure we have the latest data from database
+        // This ensures RLS policies are respected and all relationships are loaded
+        await loadData()
+        
         return transformedProject
       }
 
@@ -338,7 +322,7 @@ export const useProjectsData = () => {
       setError('Failed to create project')
       return null
     }
-  }, [])
+  }, [clients, loadData])
 
   const updateProject = useCallback(async (id: string, updates: Partial<Project>) => {
     try {

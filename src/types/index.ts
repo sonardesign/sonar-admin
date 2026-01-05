@@ -37,7 +37,7 @@ export interface Project {
   hourly_rate?: number;
   budget?: number;
   deadline?: string;
-  status: 'active' | 'on_hold' | 'completed' | 'cancelled';
+  status: 'active' | 'passive' | 'on_hold' | 'completed' | 'cancelled';
   is_archived: boolean;
   created_by?: string;
   created_at: string;

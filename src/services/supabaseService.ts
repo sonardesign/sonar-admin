@@ -156,6 +156,12 @@ export const projectService = {
   // Create project
   async create(project: Omit<Project, 'id' | 'created_at' | 'updated_at'>): Promise<{ data: Project | null; error: Error | null }> {
     try {
+      // Get current user
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
+        return { data: null, error: new Error('User not authenticated') }
+      }
+
       const projectData = {
         client_id: project.client_id || project.clientId!,
         name: project.name,
@@ -166,6 +172,7 @@ export const projectService = {
         deadline: project.deadline,
         status: project.status || 'active',
         is_archived: project.is_archived || project.archived || false,
+        created_by: user.id, // Set creator
       }
 
       const { data, error } = await supabase
@@ -180,7 +187,29 @@ export const projectService = {
         `)
         .single()
 
-      if (error) return { data: null, error: new Error(error.message) }
+      if (error) {
+        console.error('❌ Error creating project:', error)
+        return { data: null, error: new Error(error.message) }
+      }
+
+      // Add creator as project member with owner role so they can see and manage the project
+      if (data) {
+        const { error: memberError } = await supabase
+          .from('project_members')
+          .insert([{
+            project_id: data.id,
+            user_id: user.id,
+            role: 'owner',
+            can_edit_project: true,
+            can_view_reports: true,
+            added_by: user.id,
+          }])
+
+        if (memberError) {
+          console.error('⚠️ Warning: Could not add creator as project member:', memberError)
+          // Don't fail the project creation if member addition fails
+        }
+      }
 
       const transformedData = {
         ...data,
@@ -194,6 +223,7 @@ export const projectService = {
 
       return { data: transformedData, error: null }
     } catch (error) {
+      console.error('❌ Exception creating project:', error)
       return { data: null, error: error as Error }
     }
   },

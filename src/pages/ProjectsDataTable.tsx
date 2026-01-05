@@ -29,9 +29,16 @@ import {
   TableHeader,
   TableRow,
 } from '../components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '../components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
-import { Trash2, Edit2, ArrowUpDown } from 'lucide-react';
+import { MoreHorizontal, Trash2, Edit2, ArrowUpDown } from 'lucide-react';
 import { useProjectsData } from '../hooks/useProjectsData';
 import { Project } from '../types';
 import { Page } from '../components/Page';
@@ -53,9 +60,6 @@ export const Projects: React.FC = () => {
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renamingProject, setRenamingProject] = useState<Project | null>(null);
   const [newProjectName, setNewProjectName] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [clientFilter, setClientFilter] = useState('all');
-  const [groupBy, setGroupBy] = useState<'none' | 'status' | 'client' | 'last_edited'>('none');
 
   // Filter active projects
   const activeProjects = useMemo(
@@ -106,14 +110,14 @@ export const Projects: React.FC = () => {
         header: ({ table }) => (
           <Checkbox
             checked={table.getIsAllPageRowsSelected()}
-            onCheckedChange={(value: boolean) => table.toggleAllPageRowsSelected(!!value)}
+            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
             aria-label="Select all"
           />
         ),
         cell: ({ row }) => (
           <Checkbox
             checked={row.getIsSelected()}
-            onCheckedChange={(value: boolean) => row.toggleSelected(!!value)}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
             aria-label="Select row"
           />
         ),
@@ -166,13 +170,9 @@ export const Projects: React.FC = () => {
           const project = row.original;
           return (
             <button
-              onClick={() => navigate(`/projects/${encodeURIComponent(project.name)}`)}
-              className="font-medium hover:underline text-left flex items-center gap-2"
+              onClick={() => navigate(`/projects/${project.id}`)}
+              className="font-medium hover:underline text-left"
             >
-              <div
-                className="w-3 h-3 rounded-full flex-shrink-0"
-                style={{ backgroundColor: project.color }}
-              />
               {project.name}
             </button>
           );
@@ -215,33 +215,8 @@ export const Projects: React.FC = () => {
             </Button>
           );
         },
-        cell: () => {
-          return <div className="text-muted-foreground">-</div>;
-        },
-      },
-      // Last Edited column
-      {
-        accessorKey: 'updated_at',
-        header: ({ column }) => {
-          return (
-            <Button
-              variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-              className="h-8 px-2"
-            >
-              Last Edited
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
-          );
-        },
         cell: ({ row }) => {
-          const date = row.getValue('updated_at') as string;
-          if (!date) return <div className="text-muted-foreground">-</div>;
-          return (
-            <div className="text-sm">
-              {new Date(date).toLocaleDateString()}
-            </div>
-          );
+          return <div className="text-muted-foreground">-</div>;
         },
       },
       // Rename button column
@@ -312,35 +287,8 @@ export const Projects: React.FC = () => {
     [activeProjects]
   );
 
-  // Group projects based on groupBy selection
-  const groupedProjects = useMemo(() => {
-    if (groupBy === 'none') return null;
-
-    const filtered = table.getFilteredRowModel().rows.map(row => row.original);
-    const groups: Record<string, Project[]> = {};
-
-    filtered.forEach((project) => {
-      let key = '';
-      if (groupBy === 'status') {
-        key = project.status;
-      } else if (groupBy === 'client') {
-        key = project.client_name || 'No Client';
-      } else if (groupBy === 'last_edited') {
-        const date = project.updated_at ? new Date(project.updated_at).toLocaleDateString() : 'Unknown';
-        key = date;
-      }
-
-      if (!groups[key]) {
-        groups[key] = [];
-      }
-      groups[key].push(project);
-    });
-
-    return groups;
-  }, [groupBy, table]);
-
   if (loading) {
-    return <Page loading={true} loadingText="Loading projects..."><div /></Page>;
+    return <Page loading={true} loadingText="Loading projects..." />;
   }
 
   return (
@@ -357,7 +305,7 @@ export const Projects: React.FC = () => {
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-4">
           {/* Name filter */}
           <Input
             placeholder="Filter by name..."
@@ -368,56 +316,41 @@ export const Projects: React.FC = () => {
             className="max-w-sm"
           />
 
-          {/* Group By dropdown */}
-          <Select value={groupBy} onValueChange={(value: any) => setGroupBy(value)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No Grouping</SelectItem>
-              <SelectItem value="status">Group by Status</SelectItem>
-              <SelectItem value="client">Group by Client</SelectItem>
-              <SelectItem value="last_edited">Group by Last Edited</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Client filter */}
-          <Select
-            value={clientFilter}
-            onValueChange={(value) => {
-              setClientFilter(value);
-              table.getColumn('client_name')?.setFilterValue(value === 'all' ? '' : [value]);
-            }}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Clients</SelectItem>
-              {uniqueClients.map((client) => (
-                <SelectItem key={client} value={client}>
-                  {client}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
           {/* Status filter */}
           <Select
-            value={statusFilter}
-            onValueChange={(value) => {
-              setStatusFilter(value);
-              table.getColumn('status')?.setFilterValue(value === 'all' ? '' : [value]);
-            }}
+            value={(table.getColumn('status')?.getFilterValue() as string) ?? 'all'}
+            onValueChange={(value) =>
+              table.getColumn('status')?.setFilterValue(value === 'all' ? '' : [value])
+            }
           >
             <SelectTrigger className="w-[180px]">
-              <SelectValue />
+              <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               {uniqueStatuses.map((status) => (
                 <SelectItem key={status} value={status}>
                   {status}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Client filter */}
+          <Select
+            value={(table.getColumn('client_name')?.getFilterValue() as string) ?? 'all'}
+            onValueChange={(value) =>
+              table.getColumn('client_name')?.setFilterValue(value === 'all' ? '' : [value])
+            }
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Client" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Clients</SelectItem>
+              {uniqueClients.map((client) => (
+                <SelectItem key={client} value={client}>
+                  {client}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -446,40 +379,7 @@ export const Projects: React.FC = () => {
               ))}
             </TableHeader>
             <TableBody>
-              {groupedProjects ? (
-                // Grouped view
-                Object.entries(groupedProjects).map(([groupKey, projects]) => (
-                  <React.Fragment key={groupKey}>
-                    {/* Group header row */}
-                    <TableRow className="bg-muted/50 hover:bg-muted/50">
-                      <TableCell colSpan={columns.length} className="font-semibold">
-                        {groupKey} ({projects.length})
-                      </TableCell>
-                    </TableRow>
-                    {/* Group items */}
-                    {projects.map((project) => {
-                      const row = table.getRowModel().rows.find(r => r.original.id === project.id);
-                      if (!row) return null;
-                      return (
-                        <TableRow
-                          key={row.id}
-                          data-state={row.getIsSelected() && 'selected'}
-                        >
-                          {row.getVisibleCells().map((cell) => (
-                            <TableCell key={cell.id}>
-                              {flexRender(
-                                cell.column.columnDef.cell,
-                                cell.getContext()
-                              )}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      );
-                    })}
-                  </React.Fragment>
-                ))
-              ) : table.getRowModel().rows?.length ? (
-                // Normal view
+              {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => (
                   <TableRow
                     key={row.id}

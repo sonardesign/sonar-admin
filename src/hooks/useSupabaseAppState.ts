@@ -79,7 +79,7 @@ export const useSupabaseAppState = () => {
           const transformedProjects = (rawProjectsData || []).map((project: any) => {
             // Find the client for this project
             const client = clientsForProjects?.find(c => c.id === project.client_id)
-            const clientName = client?.name || 'Unknown Client'
+            const clientName = client?.name || 'No Client'
 
             return {
               id: project.id,
@@ -152,6 +152,65 @@ export const useSupabaseAppState = () => {
       console.log('🏁 Loading state cleared')
     }
   }
+
+  // Helper function to reload projects
+  const reloadProjects = useCallback(async () => {
+    try {
+      console.log('🔄 Reloading projects...')
+      // Load clients first
+      const { data: clientsForProjects, error: clientsForProjectsError } = await supabase
+        .from('clients')
+        .select('*')
+        .order('name')
+
+      if (clientsForProjectsError) {
+        console.error('❌ Error loading clients for projects:', clientsForProjectsError)
+      }
+
+      // Load projects
+      const { data: rawProjectsData, error: rawProjectsError } = await supabase
+        .from('projects')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (rawProjectsError) {
+        console.error('❌ Error reloading projects:', rawProjectsError)
+        return
+      }
+
+      console.log('✅ Projects reloaded:', rawProjectsData?.length || 0, 'records')
+      
+      // Transform the data and match with clients
+      const transformedProjects = (rawProjectsData || []).map((project: any) => {
+        const client = clientsForProjects?.find(c => c.id === project.client_id)
+        const clientName = client?.name || 'No Client'
+
+        return {
+          id: project.id,
+          name: project.name,
+          description: project.description,
+          color: project.color || '#3b82f6',
+          client_id: project.client_id,
+          client_name: clientName,
+          status: project.status || 'active',
+          is_archived: project.is_archived || false,
+          created_by: project.created_by,
+          created_at: project.created_at,
+          updated_at: project.updated_at,
+          // Legacy compatibility
+          clientId: project.client_id,
+          clientName: clientName,
+          archived: project.is_archived || false,
+          createdAt: project.created_at,
+          updatedAt: project.updated_at
+        }
+      })
+
+      setProjects(transformedProjects)
+    } catch (err) {
+      console.error('💥 Error reloading projects:', err)
+    }
+  }, [])
 
   // Client management
   const createClient = useCallback(async (name: string): Promise<Client | null> => {
@@ -242,6 +301,8 @@ export const useSupabaseAppState = () => {
         return null
       }
 
+      console.log('➕ Creating project:', { name, color, clientId })
+
       const { data, error } = await projectService.create({
         name,
         color,
@@ -251,24 +312,28 @@ export const useSupabaseAppState = () => {
       })
 
       if (error) {
-        console.error('Error creating project:', error)
-        setError('Failed to create project')
+        console.error('❌ Error creating project:', error)
+        setError(`Failed to create project: ${error.message}`)
+        notifications.project.createError(error.message)
         return null
       }
 
       if (data) {
-        setProjects(prev => [...prev, data])
+        console.log('✅ Project created successfully:', data.id, data.name)
+        // Reload projects to ensure we have the latest from the database
+        // This ensures RLS policies are respected and all relationships are loaded
+        await reloadProjects()
         return data
       }
 
       return null
     } catch (err) {
-      console.error('Error creating project:', err)
+      console.error('❌ Exception creating project:', err)
       setError('Failed to create project')
       notifications.project.createError(err instanceof Error ? err.message : 'Unknown error')
       return null
     }
-  }, [])
+  }, [reloadProjects])
 
   const updateProject = useCallback(async (id: string, updates: Partial<Project>) => {
     try {

@@ -130,7 +130,7 @@ export type Database = {
           hourly_rate?: number
           budget?: number
           deadline?: string
-          status: 'active' | 'on_hold' | 'completed' | 'cancelled'
+          status: 'active' | 'passive' | 'on_hold' | 'completed' | 'cancelled'
           is_archived: boolean
           created_by?: string
           created_at: string
@@ -145,7 +145,7 @@ export type Database = {
           hourly_rate?: number
           budget?: number
           deadline?: string
-          status?: 'active' | 'on_hold' | 'completed' | 'cancelled'
+          status?: 'active' | 'passive' | 'on_hold' | 'completed' | 'cancelled'
           is_archived?: boolean
           created_by?: string
           created_at?: string
@@ -160,7 +160,7 @@ export type Database = {
           hourly_rate?: number
           budget?: number
           deadline?: string
-          status?: 'active' | 'on_hold' | 'completed' | 'cancelled'
+          status?: 'active' | 'passive' | 'on_hold' | 'completed' | 'cancelled'
           is_archived?: boolean
           created_by?: string
           created_at?: string
@@ -280,7 +280,7 @@ export type Database = {
           name: string
           description?: string
           color: string
-          status: 'active' | 'on_hold' | 'completed' | 'cancelled'
+          status: 'active' | 'passive' | 'on_hold' | 'completed' | 'cancelled'
           is_archived: boolean
           client_name: string
           client_id: string
