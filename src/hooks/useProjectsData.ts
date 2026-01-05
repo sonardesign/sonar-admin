@@ -445,14 +445,20 @@ export const useProjectsData = () => {
       if (error) {
         console.error('❌ Error deleting project:', error)
         setError('Failed to delete project')
-        return
+        throw new Error(error.message || 'Failed to delete project')
       }
 
-      console.log('✅ Project deleted')
-      setProjects(prev => prev.filter(p => p.id !== id))
+      console.log('✅ Project deleted from database')
+      setProjects(prev => {
+        const filtered = prev.filter(p => p.id !== id)
+        console.log('📊 Projects count after delete:', prev.length, '->', filtered.length)
+        return filtered
+      })
     } catch (err) {
       console.error('💥 Error deleting project:', err)
-      setError('Failed to delete project')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete project'
+      setError(errorMessage)
+      throw err
     }
   }, [])
 

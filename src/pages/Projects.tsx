@@ -82,10 +82,13 @@ export const Projects: React.FC = () => {
   const handleDelete = async (project: Project) => {
     if (window.confirm(`Are you sure you want to delete "${project.name}"?`)) {
       try {
+        console.log('🗑️ Deleting project from UI:', project.id, project.name);
         await deleteProject(project.id);
+        console.log('✅ Project deleted from UI');
         toast.success(`Project "${project.name}" deleted`);
       } catch (error) {
-        toast.error('Failed to delete project');
+        console.error('❌ Error deleting project:', error);
+        toast.error(`Failed to delete project: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
   };
@@ -299,6 +302,8 @@ export const Projects: React.FC = () => {
       columnFilters,
       rowSelection,
     },
+    // Force re-render when activeProjects changes
+    autoResetAll: false,
   });
 
   // Get unique values for filters
