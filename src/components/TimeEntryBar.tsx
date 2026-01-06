@@ -78,3 +78,4 @@ export const TimeEntryBar: React.FC<TimeEntryBarProps> = ({
 }
 
 
+

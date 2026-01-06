@@ -41,3 +41,4 @@ COMMENT ON POLICY "Managers can create time entries for project members" ON publ
 'Allows project managers to create planned time entries for team members on their projects';
 
 
+

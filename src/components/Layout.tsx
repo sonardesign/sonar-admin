@@ -6,7 +6,6 @@ import {
   Clock, 
   CalendarDays,
   FolderOpen,
-  Timer,
   BarChart3,
   PieChart,
   Moon,
@@ -51,7 +50,6 @@ interface LayoutProps {
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
-  { name: 'Time Tracking', href: '/time-tracking', icon: Timer },
   { name: 'Timetable', href: '/timetable', icon: CalendarDays },
   { name: 'Tasks', href: '/tasks', icon: Kanban },
   { name: 'Projects', href: '/projects', icon: FolderOpen },
