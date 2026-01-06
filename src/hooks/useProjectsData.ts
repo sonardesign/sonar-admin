@@ -437,15 +437,39 @@ export const useProjectsData = () => {
   const deleteProject = useCallback(async (id: string) => {
     try {
       console.log('🗑️ Deleting project:', id)
-      const { error } = await supabase
+      
+      // First check if the project exists
+      const { data: existingProject, error: checkError } = await supabase
         .from('projects')
-        .delete()
+        .select('id, name, created_by')
+        .eq('id', id)
+        .single()
+
+      if (checkError || !existingProject) {
+        console.error('❌ Project not found:', checkError)
+        throw new Error('Project not found')
+      }
+
+      console.log('📋 Project to delete:', existingProject)
+
+      // Attempt to delete
+      const { error, count } = await supabase
+        .from('projects')
+        .delete({ count: 'exact' })
         .eq('id', id)
 
       if (error) {
         console.error('❌ Error deleting project:', error)
         setError('Failed to delete project')
         throw new Error(error.message || 'Failed to delete project')
+      }
+
+      // Check if anything was actually deleted
+      console.log('📊 Delete count:', count)
+      if (count === 0) {
+        console.error('❌ Delete blocked - no rows deleted (likely RLS policy)')
+        setError('Permission denied: You can only delete projects you created')
+        throw new Error('Permission denied: You can only delete projects you created')
       }
 
       console.log('✅ Project deleted from database')

@@ -22,6 +22,7 @@ export const Settings: React.FC = () => {
   // Invite user modal state
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [isInviting, setIsInviting] = useState(false)
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null)
   const [inviteForm, setInviteForm] = useState({
     email: '',
     fullName: '',
@@ -130,24 +131,96 @@ export const Settings: React.FC = () => {
   }
 
   const handleUpdateRole = async (userId: string, newRole: 'admin' | 'manager' | 'member', userName: string) => {
+    // Find the current user to see their current role
+    const currentUser = users.find(u => u.id === userId)
+    console.log('🔄 Role change requested:', {
+      userId,
+      userName,
+      currentRole: currentUser?.role,
+      newRole,
+      isDisabled: updatingUserId === userId
+    })
+
+    // Prevent change if already updating
+    if (updatingUserId === userId) {
+      console.warn('⚠️ Update already in progress for this user')
+      return
+    }
+
+    setUpdatingUserId(userId)
     try {
-      const { error } = await supabase
+      console.log('📤 Sending update to database...')
+      
+      // First, try to update without select to see if that works
+      const { error: updateError } = await supabase
         .from('profiles')
         .update({ role: newRole })
         .eq('id', userId)
 
-      if (error) {
-        notifications.createError('Update Role', error.message)
+      if (updateError) {
+        console.error('❌ Database update error:', {
+          code: updateError.code,
+          message: updateError.message,
+          details: updateError.details,
+          hint: updateError.hint
+        })
+        notifications.createError('Update Role', `Database error: ${updateError.message}`)
         return
       }
 
-      notifications.createSuccess('Role Updated', `${userName}'s role has been updated to ${newRole}`)
+      console.log('✅ Database update completed (no error)')
       
-      // Refresh users list
-      refresh()
+      // Now fetch the updated user to verify
+      console.log('📥 Fetching updated user data...')
+      const { data: updatedData, error: selectError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role, is_active')
+        .eq('id', userId)
+        .single()
+
+      if (selectError) {
+        console.warn('⚠️ Could not fetch updated data:', selectError.message)
+        // Still show success since update worked
+        notifications.createSuccess('Role Updated', `${userName}'s role has been updated to ${newRole}`)
+      } else if (updatedData) {
+        console.log('✅ Verified update:', updatedData)
+        console.log('📊 New role:', updatedData.role)
+        
+        if (updatedData.role === newRole) {
+          notifications.createSuccess('Role Updated', `${userName}'s role changed from ${currentUser?.role} to ${newRole} ✓`)
+        } else {
+          console.warn('⚠️ Role mismatch after update:', {
+            expected: newRole,
+            actual: updatedData.role
+          })
+          notifications.createError('Role Update', `Update completed but role is ${updatedData.role}`)
+        }
+      } else {
+        console.warn('⚠️ Update succeeded but user not found')
+        notifications.createSuccess('Role Updated', `${userName}'s role has been updated`)
+      }
+      
+      // Refresh users list after successful update
+      console.log('🔄 Refreshing users list...')
+      await refresh()
+      console.log('✅ Users list refreshed')
+      
+      // Verify the user was updated
+      const updatedUser = users.find(u => u.id === userId)
+      console.log('🔍 User after refresh:', updatedUser)
     } catch (error) {
-      console.error('Error updating role:', error)
-      notifications.createError('Update Role', 'Failed to update user role')
+      console.error('💥 Exception during role update:', error)
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        })
+      }
+      notifications.createError('Update Role', `Exception: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setUpdatingUserId(null)
+      console.log('🏁 Update process completed')
     }
   }
 
@@ -174,6 +247,14 @@ export const Settings: React.FC = () => {
             </div>
           </CardHeader>
           <CardContent>
+            {/* Debug: Show all unique roles in database */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mb-4 p-3 bg-muted rounded-lg text-sm">
+                <strong>Debug - Roles in DB:</strong>{' '}
+                {Array.from(new Set(users.map(u => u.role))).join(', ')}
+              </div>
+            )}
+            
             {users.length > 0 ? (
               <Table>
                 <TableHeader>
@@ -202,6 +283,7 @@ export const Settings: React.FC = () => {
                       <TableCell>
                         <Select
                           value={user.role}
+                          disabled={updatingUserId === user.id}
                           onValueChange={(value: 'admin' | 'manager' | 'member') => 
                             handleUpdateRole(user.id, value, user.full_name)
                           }

@@ -33,6 +33,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '../components/ui/label';
 import { Trash2, Edit2, ArrowUpDown } from 'lucide-react';
 import { useProjectsData } from '../hooks/useProjectsData';
+import { useSupabaseAppState } from '../hooks/useSupabaseAppState';
 import { Project } from '../types';
 import { Page } from '../components/Page';
 import { toast } from 'sonner';
@@ -46,6 +47,9 @@ export const Projects: React.FC = () => {
     deleteProject,
     loading,
   } = useProjectsData();
+  
+  // Get time entries to calculate total hours
+  const { timeEntries } = useSupabaseAppState();
 
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -85,10 +89,17 @@ export const Projects: React.FC = () => {
         console.log('🗑️ Deleting project from UI:', project.id, project.name);
         await deleteProject(project.id);
         console.log('✅ Project deleted from UI');
-        toast.success(`Project "${project.name}" deleted`);
+        toast.success(`Project "${project.name}" deleted successfully`);
       } catch (error) {
         console.error('❌ Error deleting project:', error);
-        toast.error(`Failed to delete project: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        
+        // Show appropriate error message
+        if (errorMessage.includes('Permission denied') || errorMessage.includes('RLS')) {
+          toast.error('Permission denied: Only admins or project creators can delete projects');
+        } else {
+          toast.error(`Failed to delete project: ${errorMessage}`);
+        }
       }
     }
   };
@@ -203,9 +214,9 @@ export const Projects: React.FC = () => {
           return value.includes(row.getValue(id));
         },
       },
-      // Manager column
+      // Total Hours column
       {
-        accessorKey: 'created_by',
+        id: 'total_hours',
         header: ({ column }) => {
           return (
             <Button
@@ -213,13 +224,33 @@ export const Projects: React.FC = () => {
               onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
               className="h-8 px-2"
             >
-              Manager
+              Total Hours
               <ArrowUpDown className="ml-2 h-4 w-4" />
             </Button>
           );
         },
-        cell: () => {
-          return <div className="text-muted-foreground">-</div>;
+        cell: ({ row }) => {
+          const project = row.original;
+          // Calculate total hours from time entries
+          const totalMinutes = timeEntries
+            .filter((entry) => entry.project_id === project.id || entry.projectId === project.id)
+            .reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0);
+          const totalHours = (totalMinutes / 60).toFixed(1);
+          return (
+            <div className="text-sm font-medium">
+              {totalHours}h
+            </div>
+          );
+        },
+        sortingFn: (rowA, rowB) => {
+          const getHours = (row: any) => {
+            const project = row.original;
+            const totalMinutes = timeEntries
+              .filter((entry) => entry.project_id === project.id || entry.projectId === project.id)
+              .reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0);
+            return totalMinutes / 60;
+          };
+          return getHours(rowA) - getHours(rowB);
         },
       },
       // Last Edited column
@@ -285,7 +316,7 @@ export const Projects: React.FC = () => {
         enableSorting: false,
       },
     ],
-    [navigate, clients]
+    [navigate, clients, timeEntries]
   );
 
   const table = useReactTable({
