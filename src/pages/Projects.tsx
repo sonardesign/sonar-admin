@@ -34,12 +34,14 @@ import { Label } from '../components/ui/label';
 import { Trash2, Edit2, ArrowUpDown } from 'lucide-react';
 import { useProjectsData } from '../hooks/useProjectsData';
 import { useSupabaseAppState } from '../hooks/useSupabaseAppState';
+import { usePersistentState, useLastPage } from '../hooks/usePersistentState';
 import { Project } from '../types';
 import { Page } from '../components/Page';
 import { toast } from 'sonner';
 
 export const Projects: React.FC = () => {
   const navigate = useNavigate();
+  const { saveLastPage } = useLastPage();
   const {
     clients,
     projects,
@@ -51,15 +53,22 @@ export const Projects: React.FC = () => {
   // Get time entries to calculate total hours
   const { timeEntries } = useSupabaseAppState();
 
+  // Save current page
+  React.useEffect(() => {
+    saveLastPage('/projects');
+  }, [saveLastPage]);
+
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [rowSelection, setRowSelection] = useState({});
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renamingProject, setRenamingProject] = useState<Project | null>(null);
   const [newProjectName, setNewProjectName] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [clientFilter, setClientFilter] = useState('all');
-  const [groupBy, setGroupBy] = useState<'none' | 'status' | 'client' | 'last_edited'>('none');
+  
+  // Persistent filters
+  const [statusFilter, setStatusFilter] = usePersistentState('projects_statusFilter', 'all');
+  const [clientFilter, setClientFilter] = usePersistentState('projects_clientFilter', 'all');
+  const [groupBy, setGroupBy] = usePersistentState<'none' | 'status' | 'client' | 'last_edited'>('projects_groupBy', 'none');
 
   // Filter active projects
   const activeProjects = useMemo(

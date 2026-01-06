@@ -38,6 +38,7 @@ import { useSupabaseAppState } from '../hooks/useSupabaseAppState';
 import { usePermissions } from '../hooks/usePermissions';
 import { useTheme } from '../hooks/useTheme';
 import { useKeyboardShortcut, createShortcut } from '../hooks/useKeyboardShortcut';
+import { useLastPage } from '../hooks/usePersistentState';
 import { notifications } from '../lib/notifications';
 import { isRouteAllowed } from '../lib/permissions';
 import { supabase } from '../lib/supabase';
@@ -65,6 +66,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { users, projects, getActiveProjects } = useSupabaseAppState();
   const { userRole } = usePermissions();
   const { theme, setTheme, isDark } = useTheme();
+  const { saveLastPage } = useLastPage();
+  
+  // Save current page on location change
+  useEffect(() => {
+    saveLastPage(location.pathname);
+  }, [location.pathname, saveLastPage]);
   
   // Settings modal state
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);

@@ -4,7 +4,7 @@
 }
 
 .rbc-header {
-  height: 36px;
+  height: 60px;
   font-weight: 600;
   padding: 8px 6px;
   background-color: hsl(var(--muted));
@@ -12,6 +12,7 @@
   border-right: none !important;
   cursor: pointer;
   transition: background-color 0.2s ease;
+  overflow: visible;
 }
 
 .rbc-header:hover {

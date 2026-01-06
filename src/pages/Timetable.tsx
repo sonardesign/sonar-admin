@@ -6,6 +6,7 @@ import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Label } from '../components/ui/label';
@@ -17,6 +18,7 @@ import { Page } from '../components/Page';
 import { useSupabaseAppState } from '../hooks/useSupabaseAppState';
 import { useAuth } from '../hooks/useAuth';
 import { usePermissions } from '../hooks/usePermissions';
+import { usePersistentState, useLastPage } from '../hooks/usePersistentState';
 import { ChevronLeft, ChevronRight, Clock, Users, ArrowLeft } from 'lucide-react';
 import { notifications } from '../lib/notifications';
 import { userService } from '../services/supabaseService';
@@ -26,6 +28,14 @@ import { ROLE_LABELS, ROLE_BADGES } from '../lib/permissions';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import '../styles/timetable.css';
+
+// Configure moment to start weeks on Monday
+moment.updateLocale('en', {
+  week: {
+    dow: 1, // Monday is the first day of the week
+    doy: 4  // The week that contains Jan 4th is the first week of the year
+  }
+});
 
 // Setup the localizer
 const localizer = momentLocalizer(moment);
@@ -107,12 +117,31 @@ const CustomEvent = ({ event }: { event: TimeEntry }) => {
 const CustomHeader = ({ 
   label, 
   date, 
-  onDrillDown 
+  onDrillDown,
+  events
 }: { 
   label: React.ReactNode; 
   date: Date;
   onDrillDown: (date: Date) => void;
+  events: TimeEntry[];
 }) => {
+  // Calculate total hours for this day
+  const dayStart = moment(date).startOf('day');
+  const dayEnd = moment(date).endOf('day');
+  
+  const totalMinutes = events
+    .filter(event => {
+      const eventStart = moment(event.start);
+      return eventStart.isSameOrAfter(dayStart) && eventStart.isBefore(dayEnd);
+    })
+    .reduce((sum, event) => sum + (event.resource?.duration_minutes || 0), 0);
+  
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const seconds = 0; // We don't track seconds
+  
+  const timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  
   return (
     <div 
       onClick={() => onDrillDown(date)}
@@ -120,29 +149,73 @@ const CustomHeader = ({
         cursor: 'pointer',
         height: '100%',
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center'
+        justifyContent: 'center',
+        gap: '2px'
       }}
       title="Click to view day"
     >
-      {label}
+      <div>{label}</div>
+      <div style={{
+        fontSize: '11px',
+        fontWeight: '500',
+        color: '#6b7280',
+        fontFamily: 'monospace'
+      }}>
+        {timeString}
+      </div>
     </div>
   );
 };
 
 export const Timetable: React.FC = () => {
   const { user } = useAuth();
+  const { saveLastPage } = useLastPage();
   const { projects, timeEntries, getActiveProjects, createTimeEntry, updateTimeEntry, deleteTimeEntry, loading, error } = useSupabaseAppState();
   const { isAdmin, isManager, canViewOthersTimeEntries } = usePermissions();
   
-  // State for calendar
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState<typeof Views.WEEK | typeof Views.DAY>(Views.WEEK);
+  // Save current page
+  React.useEffect(() => {
+    saveLastPage('/timetable');
+  }, [saveLastPage]);
   
-  // User selection state (for admins)
-  const [selectedUserId, setSelectedUserId] = useState<string>(user?.id || '');
+  // Persistent state for calendar with ISO date string to avoid Date serialization issues
+  const [currentDateISO, setCurrentDateISO] = usePersistentState('timetable_currentDate', new Date().toISOString());
+  const currentDate = useMemo(() => new Date(currentDateISO), [currentDateISO]);
+  const setCurrentDate = useCallback((date: Date) => {
+    setCurrentDateISO(date.toISOString());
+  }, [setCurrentDateISO]);
+  
+  const [view, setView] = usePersistentState<typeof Views.WEEK | typeof Views.DAY>('timetable_view', Views.WEEK);
+  
+  // User selection state (for admins) - persistent
+  const [selectedUserId, setSelectedUserId] = usePersistentState('timetable_selectedUserId', user?.id || '');
   const [visibleUsers, setVisibleUsers] = useState<any[]>([]);
   const [userTimeEntries, setUserTimeEntries] = useState<any[]>([]);
+  
+  // Persistent scroll position
+  const [scrollPosition, setScrollPosition] = usePersistentState('timetable_scrollPosition', 540); // Default to 9 AM (540 minutes)
+  
+  // Track scroll position
+  useEffect(() => {
+    const handleScroll = () => {
+      const timeColumn = document.querySelector('.rbc-time-content');
+      if (timeColumn) {
+        const scrollTop = timeColumn.scrollTop;
+        // Convert scroll pixels to approximate time (rough estimation)
+        const minutesPerPixel = 1440 / timeColumn.scrollHeight; // 1440 minutes in a day
+        const scrollMinutes = Math.floor(scrollTop * minutesPerPixel);
+        setScrollPosition(scrollMinutes);
+      }
+    };
+
+    const timeColumn = document.querySelector('.rbc-time-content');
+    if (timeColumn) {
+      timeColumn.addEventListener('scroll', handleScroll);
+      return () => timeColumn.removeEventListener('scroll', handleScroll);
+    }
+  }, [view]);
   
   // Modal state
   const [isTimeSlotModalOpen, setIsTimeSlotModalOpen] = useState(false);
@@ -161,6 +234,8 @@ export const Timetable: React.FC = () => {
   const [editDescription, setEditDescription] = useState('');
   const [editProjectId, setEditProjectId] = useState('');
   const [editEntryType, setEditEntryType] = useState<'planned' | 'reported'>('reported');
+  const [editStartTime, setEditStartTime] = useState('');
+  const [editEndTime, setEditEndTime] = useState('');
 
   const activeProjects = getActiveProjects();
 
@@ -335,6 +410,8 @@ export const Timetable: React.FC = () => {
     setEditingTimeEntry(event);
     setEditProjectId(event.resource?.projectId || '');
     setEditDescription(event.resource?.description || '');
+    setEditStartTime(moment(event.start).format('HH:mm'));
+    setEditEndTime(moment(event.end).format('HH:mm'));
     // Determine entry type from the actual entry data
     const now = new Date();
     const isFuture = event.start > now;
@@ -407,18 +484,39 @@ export const Timetable: React.FC = () => {
   const handleUpdateTimeEntry = async () => {
     if (!editingTimeEntry || !editProjectId) return;
 
+    // Parse the time strings and create new Date objects
+    const [startHours, startMinutes] = editStartTime.split(':').map(Number);
+    const [endHours, endMinutes] = editEndTime.split(':').map(Number);
+    
+    const newStart = new Date(editingTimeEntry.start);
+    newStart.setHours(startHours, startMinutes, 0, 0);
+    
+    const newEnd = new Date(editingTimeEntry.end);
+    newEnd.setHours(endHours, endMinutes, 0, 0);
+    
+    // Validation: End time must be after start time
+    if (newEnd <= newStart) {
+      notifications.timeEntry.updateError('End time must be after start time');
+      return;
+    }
+
     // Validation: Planned entries can only be for future times
     const now = new Date();
-    if (editEntryType === 'planned' && editingTimeEntry.start <= now) {
+    if (editEntryType === 'planned' && newStart <= now) {
       notifications.timeEntry.updateError('Planned entries can only be for future times. Please switch to "Reported" for past entries.');
       return;
     }
 
     try {
+      const durationMinutes = Math.round((newEnd.getTime() - newStart.getTime()) / (1000 * 60));
+      
       await updateTimeEntry(editingTimeEntry.id, {
         project_id: editProjectId,
         description: editDescription || undefined,
         entry_type: editEntryType,
+        start_time: newStart.toISOString(),
+        end_time: newEnd.toISOString(),
+        duration_minutes: durationMinutes,
       });
 
       notifications.timeEntry.updateSuccess(editDescription);
@@ -428,6 +526,8 @@ export const Timetable: React.FC = () => {
       setEditProjectId('');
       setEditDescription('');
       setEditEntryType('reported');
+      setEditStartTime('');
+      setEditEndTime('');
     } catch (error) {
       console.error('Error updating time entry:', error);
       notifications.timeEntry.updateError(error instanceof Error ? error.message : 'Unknown error');
@@ -590,6 +690,7 @@ export const Timetable: React.FC = () => {
               onEventDrop={handleEventDrop}
               onEventResize={handleEventResize}
               eventPropGetter={eventStyleGetter}
+              scrollToTime={new Date(1970, 1, 1, Math.floor(scrollPosition / 60), scrollPosition % 60)}
               components={{
                 event: CustomEvent,
                 week: {
@@ -598,6 +699,7 @@ export const Timetable: React.FC = () => {
                       label={props.label} 
                       date={props.date}
                       onDrillDown={handleDrillDown}
+                      events={events}
                     />
                   )
                 }
@@ -759,6 +861,29 @@ export const Timetable: React.FC = () => {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="editStartTime">Start Time</Label>
+                    <Input
+                      id="editStartTime"
+                      type="time"
+                      value={editStartTime}
+                      onChange={(e) => setEditStartTime(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="editEndTime">End Time</Label>
+                    <Input
+                      id="editEndTime"
+                      type="time"
+                      value={editEndTime}
+                      onChange={(e) => setEditEndTime(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <Label htmlFor="editTaskDescription">Task Title</Label>
                   <Textarea
@@ -775,6 +900,16 @@ export const Timetable: React.FC = () => {
                     Delete Entry
                   </Button>
                   <div className="flex space-x-2">
+                    <span className="text-sm text-muted-foreground mr-4 flex items-center">
+                      Duration: {editStartTime && editEndTime ? (() => {
+                        const [sh, sm] = editStartTime.split(':').map(Number);
+                        const [eh, em] = editEndTime.split(':').map(Number);
+                        const totalMinutes = (eh * 60 + em) - (sh * 60 + sm);
+                        const hours = Math.floor(totalMinutes / 60);
+                        const minutes = totalMinutes % 60;
+                        return `${hours}h ${minutes}m`;
+                      })() : editingTimeEntry?.resource?.durationLabel || '0h 0m'}
+                    </span>
                     <Button variant="outline" onClick={() => setIsEditTimeEntryOpen(false)}>
                       Cancel
                     </Button>
@@ -802,6 +937,29 @@ export const Timetable: React.FC = () => {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="editStartTimePlanned">Start Time</Label>
+                    <Input
+                      id="editStartTimePlanned"
+                      type="time"
+                      value={editStartTime}
+                      onChange={(e) => setEditStartTime(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="editEndTimePlanned">End Time</Label>
+                    <Input
+                      id="editEndTimePlanned"
+                      type="time"
+                      value={editEndTime}
+                      onChange={(e) => setEditEndTime(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <Label htmlFor="editTaskDescription">Task Title</Label>
                   <Textarea
@@ -818,6 +976,16 @@ export const Timetable: React.FC = () => {
                     Delete Entry
                   </Button>
                   <div className="flex space-x-2">
+                    <span className="text-sm text-muted-foreground mr-4 flex items-center">
+                      Duration: {editStartTime && editEndTime ? (() => {
+                        const [sh, sm] = editStartTime.split(':').map(Number);
+                        const [eh, em] = editEndTime.split(':').map(Number);
+                        const totalMinutes = (eh * 60 + em) - (sh * 60 + sm);
+                        const hours = Math.floor(totalMinutes / 60);
+                        const minutes = totalMinutes % 60;
+                        return `${hours}h ${minutes}m`;
+                      })() : editingTimeEntry?.resource?.durationLabel || '0h 0m'}
+                    </span>
                     <Button variant="outline" onClick={() => setIsEditTimeEntryOpen(false)}>
                       Cancel
                     </Button>
