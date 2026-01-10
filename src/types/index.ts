@@ -46,6 +46,7 @@ export interface Project {
   updated_at: string;
   // Computed fields (from joins)
   client_name?: string;
+  client_code?: string;
   clientId?: string; // Legacy compatibility
   clientName?: string; // Legacy compatibility
   archived?: boolean; // Legacy compatibility
@@ -82,6 +83,23 @@ export interface Task {
 }
 
 export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'blocked' | 'done';
+
+export type LeadStatus = 'contacted' | 'prospect' | 'lead' | 'negotiation' | 'contract' | 'lost';
+
+export interface Lead {
+  id: string;
+  name: string;
+  industry?: string;
+  ticket_size?: number; // Amount in HUF
+  website?: string;
+  notes?: string;
+  contacts?: string[]; // Array of contact names/emails
+  related_tasks?: string[]; // Array of task IDs
+  status: LeadStatus;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface TimeEntry {
   id: string;

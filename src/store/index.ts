@@ -11,12 +11,13 @@ import { undoRedoMiddleware, UndoRedoStateWithMethods } from './middleware/undoR
 import { StoreState } from './types';
 import { createTasksSlice, TasksSlice } from './slices/tasksSlice';
 import { createUISlice, UISlice } from './slices/uiSlice';
+import { createLeadsSlice, LeadsSlice } from './slices/leadsSlice';
 
 /**
  * Combined store type
  * Add new slices to this type as you create them
  */
-export type AppStore = Omit<StoreState, 'undoRedo'> & { undoRedo: UndoRedoStateWithMethods } & TasksSlice & UISlice;
+export type AppStore = Omit<StoreState, 'undoRedo'> & { undoRedo: UndoRedoStateWithMethods } & TasksSlice & UISlice & LeadsSlice;
 
 /**
  * Create the store with undo/redo middleware
@@ -33,6 +34,7 @@ export const useAppStore = create<AppStore>()(
     // Combine all slices here
     ...createTasksSlice(set, get, api),
     ...createUISlice(set, get, api),
+    ...createLeadsSlice(set, get, api),
 
     // Add more slices here:
     // ...createProjectsSlice(set, get, api),
@@ -87,6 +89,24 @@ export const useUIActions = () =>
       setKanbanProjectFilter: state.setKanbanProjectFilter,
       setKanbanUserFilter: state.setKanbanUserFilter,
       resetKanbanFilters: state.resetKanbanFilters,
+    }),
+    shallow
+  );
+
+// Leads selectors
+export const useCurrentLead = () => useAppStore((state) => state.currentLead);
+export const useLeadDraft = () => useAppStore((state) => state.leadDraft);
+export const useLeadSaveStatus = () => useAppStore((state) => ({
+  isSaving: state.isSaving,
+  lastSaved: state.lastSaved,
+}), shallow);
+export const useLeadsActions = () =>
+  useAppStore(
+    (state) => ({
+      setCurrentLead: state.setCurrentLead,
+      updateLeadDraft: state.updateLeadDraft,
+      saveLead: state.saveLead,
+      clearLeadDraft: state.clearLeadDraft,
     }),
     shallow
   );

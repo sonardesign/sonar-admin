@@ -339,6 +339,7 @@ export const useProjectsData = () => {
       if (updates.client_id !== undefined) dbUpdates.client_id = updates.client_id
       if (updates.status !== undefined) dbUpdates.status = updates.status
       if (updates.is_archived !== undefined) dbUpdates.is_archived = updates.is_archived
+      if (updates.project_code !== undefined) dbUpdates.project_code = updates.project_code
       
       const { data, error } = await supabase
         .from('projects')

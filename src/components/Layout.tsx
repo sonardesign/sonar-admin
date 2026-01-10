@@ -19,7 +19,8 @@ import {
   Plus,
   CalendarIcon,
   Search,
-  X
+  X,
+  TrendingUp
 } from 'lucide-react';
 import snrLogo from '../assets/snr-logo.svg';
 import { Button } from './ui/button';
@@ -53,6 +54,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
   { name: 'Timetable', href: '/timetable', icon: CalendarDays },
   { name: 'Tasks', href: '/tasks', icon: Kanban },
+  { name: 'Funnel', href: '/funnel', icon: TrendingUp },
   { name: 'Projects', href: '/projects', icon: FolderOpen },
   { name: 'Forecast', href: '/workload', icon: Users },
   { name: 'Reports', href: '/reports', icon: BarChart3 },

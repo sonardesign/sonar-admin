@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { Page } from '../components/Page'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
@@ -182,6 +182,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ column, entries, projects, 
 // Main Tasks Page Component
 export const Tasks: React.FC = () => {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [view, setView] = useState<'kanban' | 'list'>('kanban')
   
   // Get filters from store - select individually to avoid re-render issues
@@ -228,6 +229,84 @@ export const Tasks: React.FC = () => {
       }))
     ]
   }, [users])
+
+  // Helper: Convert string to URL-friendly slug
+  const toSlug = (text: string): string => {
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '') // Remove special chars except spaces and hyphens
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+      .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
+  }
+
+  // Helper: Get username from user object
+  const getUserSlug = (user: any): string => {
+    return toSlug(user.full_name || user.email.split('@')[0])
+  }
+
+  // Initialize filters from URL on mount
+  useEffect(() => {
+    const projectCodeFromUrl = searchParams.get('project')
+    const userSlugFromUrl = searchParams.get('user')
+    
+    // Sanitize and decode project code from URL
+    if (projectCodeFromUrl && projectCodeFromUrl !== 'all') {
+      try {
+        const decodedProjectCode = decodeURIComponent(projectCodeFromUrl.trim())
+        // Find project by project_code (case-insensitive)
+        const project = projects.find(p => 
+          p.project_code?.toLowerCase() === decodedProjectCode.toLowerCase()
+        )
+        if (project) {
+          setKanbanProjectFilter(project.id)
+        }
+      } catch (e) {
+        console.error('Invalid project code in URL:', e)
+      }
+    }
+    
+    // Sanitize and decode user slug from URL
+    if (userSlugFromUrl && userSlugFromUrl !== 'all') {
+      try {
+        const decodedUserSlug = decodeURIComponent(userSlugFromUrl.trim())
+        // Find user by matching slug
+        const user = users.find(u => getUserSlug(u) === decodedUserSlug)
+        if (user) {
+          setKanbanUserFilter(user.id)
+        }
+      } catch (e) {
+        console.error('Invalid user slug in URL:', e)
+      }
+    }
+  }, []) // Only run once on mount
+  
+  // Update URL when filters change
+  useEffect(() => {
+    const newParams = new URLSearchParams()
+    
+    // Handle project filter
+    if (selectedProjectId && selectedProjectId !== 'all') {
+      const project = projects.find(p => p.id === selectedProjectId)
+      if (project && project.project_code) {
+        // Use lowercase project code for URL
+        newParams.set('project', encodeURIComponent(project.project_code.toLowerCase()))
+      }
+    }
+    
+    // Handle user filter
+    if (selectedUserId && selectedUserId !== 'all') {
+      const user = users.find(u => u.id === selectedUserId)
+      if (user) {
+        // Use username slug for URL
+        newParams.set('user', encodeURIComponent(getUserSlug(user)))
+      }
+    }
+    
+    // Update URL with all params at once
+    setSearchParams(newParams, { replace: true })
+  }, [selectedProjectId, selectedUserId, projects, users])
 
   // Load all time entries with task_status
   useEffect(() => {

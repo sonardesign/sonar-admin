@@ -64,11 +64,11 @@ export const canManageUsers = (role: UserRole): boolean => {
 export const getAllowedRoutes = (role: UserRole): string[] => {
   switch (role) {
     case 'admin':
-      return ['/', '/time-tracking', '/timetable', '/tasks', '/projects', '/workload', '/reports', '/summary', '/settings']
+      return ['/', '/time-tracking', '/timetable', '/tasks', '/funnel', '/projects', '/workload', '/reports', '/summary', '/settings']
     case 'manager':
-      return ['/', '/time-tracking', '/timetable', '/tasks', '/projects', '/workload', '/reports', '/summary']
+      return ['/', '/time-tracking', '/timetable', '/tasks', '/funnel', '/projects', '/workload', '/reports', '/summary']
     case 'member':
-      return ['/time-tracking', '/timetable', '/tasks', '/projects']
+      return ['/time-tracking', '/timetable', '/tasks', '/funnel', '/projects']
     default:
       return ['/time-tracking']
   }

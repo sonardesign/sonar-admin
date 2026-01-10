@@ -47,7 +47,7 @@ export const ProjectDetails: React.FC = () => {
   const { projectName } = useParams<{ projectName: string }>()
   const navigate = useNavigate()
   const { timeEntries, users, loading: appLoading } = useSupabaseAppState()
-  const { projects, loading: projectsLoading } = useProjectsData()
+  const { projects, updateProject, loading: projectsLoading } = useProjectsData()
   
   const [materialCosts, setMaterialCosts] = useState<MaterialCost[]>([])
   const [isAddCostOpen, setIsAddCostOpen] = useState(false)
@@ -64,6 +64,11 @@ export const ProjectDetails: React.FC = () => {
   const [projectMembers, setProjectMembers] = useState<any[]>([])
   const [isInviteMembersOpen, setIsInviteMembersOpen] = useState(false)
   const [loadingMembers, setLoadingMembers] = useState(false)
+  
+  // Inline editing state
+  const [editingField, setEditingField] = useState<'code' | 'name' | null>(null)
+  const [editedCode, setEditedCode] = useState('')
+  const [editedName, setEditedName] = useState('')
   
   const { isAdmin } = usePermissions()
 
@@ -283,6 +288,78 @@ export const ProjectDetails: React.FC = () => {
     setEditingRate(null)
   }
 
+  // Handle inline editing
+  const handleStartEditCode = () => {
+    if (!project) return
+    setEditedCode(project.project_code || '')
+    setEditingField('code')
+  }
+
+  const handleStartEditName = () => {
+    if (!project) return
+    setEditedName(project.name)
+    setEditingField('name')
+  }
+
+  const handleSaveCode = async () => {
+    if (!project) {
+      setEditingField(null)
+      return
+    }
+    
+    if (!editedCode.trim()) {
+      // Reset to original value if empty
+      setEditedCode(project.project_code || '')
+      setEditingField(null)
+      return
+    }
+
+    try {
+      await updateProject(project.id, { project_code: editedCode.trim() })
+      notifications.project.updateSuccess(project.name)
+      setEditingField(null)
+    } catch (error) {
+      notifications.project.updateError('Failed to update project ID')
+      setEditingField(null)
+    }
+  }
+
+  const handleSaveName = async () => {
+    if (!project) {
+      setEditingField(null)
+      return
+    }
+    
+    if (!editedName.trim()) {
+      // Reset to original value if empty
+      setEditedName(project.name)
+      setEditingField(null)
+      return
+    }
+
+    try {
+      await updateProject(project.id, { name: editedName.trim() })
+      notifications.project.updateSuccess(editedName.trim())
+      setEditingField(null)
+    } catch (error) {
+      notifications.project.updateError('Failed to update project name')
+      setEditingField(null)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent, field: 'code' | 'name') => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      if (field === 'code') {
+        handleSaveCode()
+      } else {
+        handleSaveName()
+      }
+    } else if (e.key === 'Escape') {
+      setEditingField(null)
+    }
+  }
+
   const formatCurrency = (amount: number, currency: 'HUF' | 'USD' | 'EUR' = 'USD') => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -328,31 +405,81 @@ export const ProjectDetails: React.FC = () => {
 
   return (
     <Page>
-      <div className="mb-8">
-        <div className="flex items-center gap-4 mb-6">
+      {/* Full-width top bar */}
+      <div className="mb-8 -mx-6 -mt-6 px-6 py-4 border-b border-border bg-muted/30">
+        <div className="flex items-center gap-4">
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={() => navigate('/projects')}
             className="flex items-center gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Projects
+            Back
           </Button>
           
-          <div className="flex items-center gap-3">
-            <div 
-              className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
-              style={{ backgroundColor: project.color }}
+          <div 
+            className="w-8 h-8 rounded-md border-2 border-background shadow-sm flex-shrink-0"
+            style={{ backgroundColor: project.color }}
+          />
+          
+          {/* Editable Project Code */}
+          {editingField === 'code' ? (
+            <input
+              type="text"
+              value={editedCode}
+              onChange={(e) => setEditedCode(e.target.value)}
+              onBlur={handleSaveCode}
+              onKeyDown={(e) => handleKeyDown(e, 'code')}
+              autoFocus
+              className="font-mono text-sm px-2.5 py-1 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              style={{ width: `${Math.max(editedCode.length * 8 + 20, 80)}px` }}
             />
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">{project.name}</h1>
-              <p className="text-muted-foreground">
-                {project.client_name || project.clientName} • {project.status}
-              </p>
-            </div>
+          ) : (
+            (project.project_code || editedCode) && (
+              <Badge 
+                variant="outline" 
+                className="font-mono text-sm px-2.5 py-1 cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={handleStartEditCode}
+              >
+                {project.project_code || editedCode}
+              </Badge>
+            )
+          )}
+          
+          {/* Editable Project Name */}
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            {editingField === 'name' ? (
+              <input
+                type="text"
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                onBlur={handleSaveName}
+                onKeyDown={(e) => handleKeyDown(e, 'name')}
+                autoFocus
+                className="text-2xl font-bold text-foreground bg-transparent focus:outline-none px-1 w-full"
+              />
+            ) : (
+              <h1 
+                className="text-2xl font-bold text-foreground truncate cursor-pointer hover:text-primary/80 transition-colors"
+                onClick={handleStartEditName}
+              >
+                {project.name}
+              </h1>
+            )}
+          </div>
+          
+          <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
+            <span>{project.client_name || project.clientName}</span>
+            <span>•</span>
+            <Badge variant={project.status === 'active' ? 'default' : 'secondary'}>
+              {project.status}
+            </Badge>
           </div>
         </div>
+      </div>
+      
+      <div className="mb-8">
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - 2/3 width */}

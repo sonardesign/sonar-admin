@@ -15,6 +15,8 @@ import { Settings } from './pages/Settings'
 import { ForecastPlanning } from './pages/WorkloadPlanning'
 import { Tasks } from './pages/Tasks'
 import { TaskDetail } from './pages/TaskDetail'
+import { Funnel } from './pages/Funnel'
+import { LeadDetails } from './pages/LeadDetails'
 import { Loader2 } from 'lucide-react'
 import { Toaster } from 'sonner'
 import './styles/globals.css'
@@ -104,6 +106,16 @@ function App() {
                 <Route path="/tasks/:taskNumber/:taskSlug" element={
                   <ProtectedRoute>
                     <TaskDetail />
+                  </ProtectedRoute>
+                } />
+                <Route path="/funnel" element={
+                  <ProtectedRoute>
+                    <Funnel />
+                  </ProtectedRoute>
+                } />
+                <Route path="/funnel/:leadId" element={
+                  <ProtectedRoute>
+                    <LeadDetails />
                   </ProtectedRoute>
                 } />
         </Routes>
