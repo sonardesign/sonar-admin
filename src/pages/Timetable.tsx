@@ -486,7 +486,7 @@ export const Timetable: React.FC = () => {
   // Handle drag and drop
   const handleEventDrop = useCallback(async ({ event, start, end }: any) => {
     const timeEntry = event as TimeEntry;
-    const duration = (end.getTime() - start.getTime()) / (1000 * 60);
+    const duration = Math.round((end.getTime() - start.getTime()) / (1000 * 60));
     
     await updateTimeEntry(timeEntry.id, {
       start_time: start.toISOString(),
@@ -498,7 +498,7 @@ export const Timetable: React.FC = () => {
   // Handle event resize
   const handleEventResize = useCallback(async ({ event, start, end }: any) => {
     const timeEntry = event as TimeEntry;
-    const duration = (end.getTime() - start.getTime()) / (1000 * 60);
+    const duration = Math.round((end.getTime() - start.getTime()) / (1000 * 60));
     
     await updateTimeEntry(timeEntry.id, {
       start_time: start.toISOString(),
@@ -518,7 +518,7 @@ export const Timetable: React.FC = () => {
       return;
     }
 
-    const duration = (modalTimeSlot.endTime.getTime() - modalTimeSlot.startTime.getTime()) / (1000 * 60);
+    const duration = Math.round((modalTimeSlot.endTime.getTime() - modalTimeSlot.startTime.getTime()) / (1000 * 60));
     
     try {
       await createTimeEntry({
