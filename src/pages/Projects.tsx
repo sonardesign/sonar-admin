@@ -29,13 +29,13 @@ import {
   TableHeader,
   TableRow,
 } from '../components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
-import { Trash2, Edit2, ArrowUpDown } from 'lucide-react';
+import { Trash2, Edit2, ArrowUpDown, Plus } from 'lucide-react';
 import { useProjectsData } from '../hooks/useProjectsData';
 import { useSupabaseAppState } from '../hooks/useSupabaseAppState';
 import { usePersistentState, useLastPage } from '../hooks/usePersistentState';
-import { Project } from '../types';
+import { Project, ProjectColor } from '../types';
 import { Page } from '../components/Page';
 import { toast } from 'sonner';
 
@@ -45,6 +45,7 @@ export const Projects: React.FC = () => {
   const {
     clients,
     projects,
+    createProject,
     updateProject,
     deleteProject,
     loading,
@@ -58,17 +59,35 @@ export const Projects: React.FC = () => {
     saveLastPage('/projects');
   }, [saveLastPage]);
 
+  // Persistent filters - must be declared before table initialization
+  const [statusFilter, setStatusFilter] = usePersistentState('projects_statusFilter', 'all');
+  const [clientFilter, setClientFilter] = usePersistentState('projects_clientFilter', 'all');
+  const [groupBy, setGroupBy] = usePersistentState<'none' | 'status' | 'client' | 'last_edited'>('projects_groupBy', 'none');
+
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  
+  // Initialize columnFilters with persisted values
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => {
+    const filters: ColumnFiltersState = [];
+    if (statusFilter !== 'all') {
+      filters.push({ id: 'status', value: [statusFilter] });
+    }
+    if (clientFilter !== 'all') {
+      filters.push({ id: 'client_name', value: [clientFilter] });
+    }
+    return filters;
+  });
+  
   const [rowSelection, setRowSelection] = useState({});
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renamingProject, setRenamingProject] = useState<Project | null>(null);
   const [newProjectName, setNewProjectName] = useState('');
   
-  // Persistent filters
-  const [statusFilter, setStatusFilter] = usePersistentState('projects_statusFilter', 'all');
-  const [clientFilter, setClientFilter] = usePersistentState('projects_clientFilter', 'all');
-  const [groupBy, setGroupBy] = usePersistentState<'none' | 'status' | 'client' | 'last_edited'>('projects_groupBy', 'none');
+  // Create project modal state
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createProjectName, setCreateProjectName] = useState('');
+  const [createClientId, setCreateClientId] = useState('');
+  const [createColor, setCreateColor] = useState<ProjectColor>('#3b82f6');
 
   // Filter active projects
   const activeProjects = useMemo(
@@ -118,6 +137,27 @@ export const Projects: React.FC = () => {
     setRenamingProject(project);
     setNewProjectName(project.name);
     setRenameDialogOpen(true);
+  };
+
+  // Handle create project
+  const handleCreateProject = async () => {
+    if (!createProjectName.trim() || !createClientId) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      const newProject = await createProject(createProjectName.trim(), createColor, createClientId);
+      if (newProject) {
+        toast.success(`Project "${createProjectName}" created successfully`);
+        setCreateDialogOpen(false);
+        setCreateProjectName('');
+        setCreateClientId('');
+        setCreateColor('#3b82f6');
+      }
+    } catch (error) {
+      toast.error('Failed to create project');
+    }
   };
 
   // Define columns
@@ -361,7 +401,61 @@ export const Projects: React.FC = () => {
   const groupedProjects = useMemo(() => {
     if (groupBy === 'none') return null;
 
-    const filtered = table.getFilteredRowModel().rows.map(row => row.original);
+    // Manually filter projects based on columnFilters
+    let filtered = [...activeProjects];
+    
+    columnFilters.forEach(filter => {
+      if (filter.id === 'name' && filter.value) {
+        const searchValue = (filter.value as string).toLowerCase();
+        filtered = filtered.filter(p => p.name.toLowerCase().includes(searchValue));
+      } else if (filter.id === 'status' && Array.isArray(filter.value) && filter.value.length > 0) {
+        filtered = filtered.filter(p => filter.value.includes(p.status));
+      } else if (filter.id === 'client_name' && Array.isArray(filter.value) && filter.value.length > 0) {
+        filtered = filtered.filter(p => filter.value.includes(p.client_name || 'No Client'));
+      }
+    });
+
+    // Apply sorting
+    if (sorting.length > 0) {
+      const sortConfig = sorting[0];
+      filtered.sort((a, b) => {
+        let aValue: any;
+        let bValue: any;
+
+        if (sortConfig.id === 'name') {
+          aValue = a.name;
+          bValue = b.name;
+        } else if (sortConfig.id === 'status') {
+          aValue = a.status;
+          bValue = b.status;
+        } else if (sortConfig.id === 'client_name') {
+          aValue = a.client_name || 'No Client';
+          bValue = b.client_name || 'No Client';
+        } else if (sortConfig.id === 'updated_at') {
+          aValue = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+          bValue = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+        } else if (sortConfig.id === 'total_hours') {
+          // Calculate total hours for sorting
+          const aTotalMinutes = timeEntries
+            .filter((entry) => entry.project_id === a.id || entry.projectId === a.id)
+            .reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0);
+          const bTotalMinutes = timeEntries
+            .filter((entry) => entry.project_id === b.id || entry.projectId === b.id)
+            .reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0);
+          aValue = aTotalMinutes;
+          bValue = bTotalMinutes;
+        }
+
+        if (aValue < bValue) {
+          return sortConfig.desc ? 1 : -1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.desc ? -1 : 1;
+        }
+        return 0;
+      });
+    }
+
     const groups: Record<string, Project[]> = {};
 
     filtered.forEach((project) => {
@@ -382,7 +476,7 @@ export const Projects: React.FC = () => {
     });
 
     return groups;
-  }, [groupBy, table]);
+  }, [groupBy, columnFilters, activeProjects, sorting, timeEntries]);
 
   if (loading) {
     return <Page loading={true} loadingText="Loading projects..."><div /></Page>;
@@ -399,6 +493,10 @@ export const Projects: React.FC = () => {
               Manage your projects and clients
             </p>
           </div>
+          <Button onClick={() => setCreateDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Project
+          </Button>
         </div>
 
         {/* Filters */}
@@ -503,7 +601,7 @@ export const Projects: React.FC = () => {
                     </TableRow>
                     {/* Group items */}
                     {projects.map((project) => {
-                      const row = table.getRowModel().rows.find(r => r.original.id === project.id);
+                      const row = table.getFilteredRowModel().rows.find(r => r.original.id === project.id);
                       if (!row) return null;
                       return (
                         <TableRow
@@ -586,6 +684,79 @@ export const Projects: React.FC = () => {
             </Button>
             <Button onClick={handleRename} disabled={!newProjectName.trim()}>
               Rename
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Project Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Project</DialogTitle>
+            <DialogDescription>
+              Add a new project to track your time and work.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="client">Client *</Label>
+              <Select value={createClientId} onValueChange={setCreateClientId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a client..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.filter(c => c.is_active).map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="createProjectName">Project Name *</Label>
+              <Input
+                id="createProjectName"
+                value={createProjectName}
+                onChange={(e) => setCreateProjectName(e.target.value)}
+                placeholder="Enter project name..."
+              />
+            </div>
+            <div>
+              <Label htmlFor="projectColor">Project Color</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="projectColor"
+                  type="color"
+                  value={createColor}
+                  onChange={(e) => setCreateColor(e.target.value as ProjectColor)}
+                  className="w-20 h-10"
+                />
+                <div className="flex gap-2">
+                  {['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#6366f1', '#f43f5e'].map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setCreateColor(color as ProjectColor)}
+                      className="w-8 h-8 rounded-full border-2 border-gray-300 hover:border-gray-400"
+                      style={{ backgroundColor: color }}
+                      title={color}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateProject} 
+              disabled={!createProjectName.trim() || !createClientId}
+            >
+              Create Project
             </Button>
           </DialogFooter>
         </DialogContent>

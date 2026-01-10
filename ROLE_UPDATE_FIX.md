@@ -196,3 +196,5 @@ After applying all fixes, verify:
 - [ ] Role persists after page refresh
 - [ ] Can change from any role to any role (admin, manager, member)
 
+
+

@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { DndProvider, useDrag, useDrop } from 'react-dnd'
-import { HTML5Backend } from 'react-dnd-html5-backend'
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { Page } from '../components/Page'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
@@ -30,38 +29,22 @@ const COLUMNS: { id: TaskStatus; title: string; color: string }[] = [
   { id: 'done', title: 'Done', color: 'bg-green-500' },
 ]
 
-// Drag item type
-const ItemTypes = {
-  TASK: 'task',
-}
-
 // Task Card Component (Draggable)
 interface TaskCardProps {
   entry: TimeEntry
+  index: number
   project?: { name: string; color: string }
   user?: { full_name: string }
   onClick?: () => void
 }
 
-const TaskCard: React.FC<TaskCardProps> = ({ entry, project, user, onClick }) => {
-  const [{ isDragging }, drag] = useDrag(() => ({
-    type: ItemTypes.TASK,
-    item: { id: entry.id, status: entry.task_status },
-    collect: (monitor) => ({
-      isDragging: monitor.isDragging(),
-    }),
-  }), [entry.id, entry.task_status])
-
+const TaskCard: React.FC<TaskCardProps> = ({ entry, index, project, user, onClick }) => {
   const hours = entry.duration_minutes ? Math.round(entry.duration_minutes / 60 * 10) / 10 : 0
 
   return (
     <div
-      ref={drag}
       onClick={onClick}
-      className={cn(
-        "bg-card border border-border rounded-lg p-3 cursor-grab shadow-sm hover:shadow-md transition-shadow active:cursor-grabbing",
-        isDragging && "opacity-50"
-      )}
+      className="bg-card border border-border rounded-lg p-3 cursor-pointer shadow-sm hover:shadow-md transition-shadow"
     >
       {/* Task Number */}
       {entry.task_number && (
@@ -117,36 +100,16 @@ interface KanbanColumnProps {
   entries: TimeEntry[]
   projects: any[]
   users: any[]
-  onDrop: (entryId: string, newStatus: TaskStatus) => void
   onTaskClick: (entry: TimeEntry) => void
   onAddClick: (status: TaskStatus) => void
 }
 
-const KanbanColumn: React.FC<KanbanColumnProps> = ({ column, entries, projects, users, onDrop, onTaskClick, onAddClick }) => {
-  const [{ isOver, canDrop }, drop] = useDrop(() => ({
-    accept: ItemTypes.TASK,
-    drop: (item: { id: string; status: TaskStatus }) => {
-      if (item.status !== column.id) {
-        onDrop(item.id, column.id)
-      }
-    },
-    collect: (monitor) => ({
-      isOver: monitor.isOver(),
-      canDrop: monitor.canDrop(),
-    }),
-  }), [column.id, onDrop])
-
+const KanbanColumn: React.FC<KanbanColumnProps> = ({ column, entries, projects, users, onTaskClick, onAddClick }) => {
   const getProject = (projectId: string) => projects.find(p => p.id === projectId)
   const getUser = (userId: string) => users.find(u => u.id === userId)
 
   return (
-    <div
-      ref={drop}
-      className={cn(
-        "flex flex-col bg-muted/30 rounded-lg min-w-[380px] w-[380px] max-h-full",
-        isOver && canDrop && "ring-2 ring-primary ring-offset-2"
-      )}
-    >
+    <div className="flex flex-col bg-muted/30 rounded-lg min-w-[380px] w-[380px] max-h-full">
       {/* Column Header */}
       <div className="p-3 border-b border-border">
         <div className="flex items-center justify-between">
@@ -167,25 +130,51 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ column, entries, projects, 
       </div>
       
       {/* Column Content */}
-      <ScrollArea className="flex-1">
-        <div className="p-2 space-y-2">
-          {entries.length === 0 ? (
-            <div className="flex items-center justify-center h-24 text-muted-foreground text-sm">
-              No tasks
+      <Droppable droppableId={column.id}>
+        {(provided, snapshot) => (
+          <ScrollArea className="flex-1">
+            <div
+              ref={provided.innerRef}
+              {...provided.droppableProps}
+              className={cn(
+                "p-2 min-h-[100px]",
+                snapshot.isDraggingOver && "bg-primary/5"
+              )}
+            >
+              {entries.length === 0 ? (
+                <div className="flex items-center justify-center h-24 text-muted-foreground text-sm">
+                  No tasks
+                </div>
+              ) : (
+                entries.map((entry, index) => (
+                  <Draggable key={entry.id} draggableId={entry.id} index={index}>
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        {...provided.dragHandleProps}
+                        className={cn(
+                          "mb-2",
+                          snapshot.isDragging && "opacity-50"
+                        )}
+                      >
+                        <TaskCard
+                          entry={entry}
+                          index={index}
+                          project={getProject(entry.project_id)}
+                          user={getUser(entry.user_id)}
+                          onClick={() => onTaskClick(entry)}
+                        />
+                      </div>
+                    )}
+                  </Draggable>
+                ))
+              )}
+              {provided.placeholder}
             </div>
-          ) : (
-            entries.map((entry) => (
-              <TaskCard
-                key={entry.id}
-                entry={entry}
-                project={getProject(entry.project_id)}
-                user={getUser(entry.user_id)}
-                onClick={() => onTaskClick(entry)}
-              />
-            ))
-          )}
-        </div>
-      </ScrollArea>
+          </ScrollArea>
+        )}
+      </Droppable>
     </div>
   )
 }
@@ -271,18 +260,59 @@ export const Tasks: React.FC = () => {
     }
   }
 
-  // Handle dropping a task into a new column
-  const handleDrop = useCallback(async (entryId: string, newStatus: TaskStatus) => {
+  // Handle drag end - move cards between columns or reorder within column
+  const handleDragEnd = async (result: DropResult) => {
+    const { destination, source, draggableId } = result
+
+    // If dropped outside a droppable area, do nothing
+    if (!destination) {
+      return
+    }
+
+    // If dropped in the same position, do nothing
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) {
+      return
+    }
+
+    const draggedEntry = taskEntries.find(e => e.id === draggableId)
+    if (!draggedEntry) return
+
+    const newStatus = destination.droppableId as TaskStatus
+    const isSameColumn = draggedEntry.task_status === newStatus
+
+    // If reordering within the same column
+    if (isSameColumn) {
+      // Get all entries in the same column
+      const columnEntries = taskEntries.filter(e => e.task_status === newStatus)
+      const reorderedEntries = Array.from(columnEntries)
+      const [removed] = reorderedEntries.splice(source.index, 1)
+      reorderedEntries.splice(destination.index, 0, removed)
+
+      // Update state: rebuild array with reordered entries
+      setTaskEntries(prev => {
+        const otherEntries = prev.filter(e => e.task_status !== newStatus)
+        return [...otherEntries, ...reorderedEntries]
+      })
+      
+      // Note: Order is not persisted to database as there's no order field
+      // If persistence is needed, a task_order field would need to be added
+      return
+    }
+
+    // Moving to a different column
     // Optimistic update
     setTaskEntries(prev => prev.map(entry => 
-      entry.id === entryId ? { ...entry, task_status: newStatus } : entry
+      entry.id === draggableId ? { ...entry, task_status: newStatus } : entry
     ))
 
     try {
       const { error } = await supabase
         .from('time_entries')
         .update({ task_status: newStatus })
-        .eq('id', entryId)
+        .eq('id', draggableId)
 
       if (error) {
         console.error('Error updating task status:', error)
@@ -296,7 +326,7 @@ export const Tasks: React.FC = () => {
       console.error('Error updating task status:', error)
       loadTaskEntries()
     }
-  }, [])
+  }
 
   // Filter entries by selected project and user
   const filteredEntries = useMemo(() => {
@@ -313,7 +343,7 @@ export const Tasks: React.FC = () => {
     return filtered
   }, [taskEntries, selectedProjectId, selectedUserId])
 
-  // Group entries by status
+  // Group entries by status (maintain order for reordering)
   const entriesByStatus = COLUMNS.reduce((acc, column) => {
     acc[column.id] = filteredEntries.filter(entry => entry.task_status === column.id)
     return acc
@@ -468,7 +498,7 @@ export const Tasks: React.FC = () => {
 
         {/* Kanban View */}
         {view === 'kanban' && (
-          <DndProvider backend={HTML5Backend}>
+          <DragDropContext onDragEnd={handleDragEnd}>
             <Card>
               <CardContent className="p-4">
                 <div className="flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-120px)]">
@@ -479,7 +509,6 @@ export const Tasks: React.FC = () => {
                       entries={entriesByStatus[column.id] || []}
                       projects={projects}
                       users={users}
-                      onDrop={handleDrop}
                       onTaskClick={handleTaskClick}
                       onAddClick={handleAddClick}
                     />
@@ -487,7 +516,7 @@ export const Tasks: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
-          </DndProvider>
+          </DragDropContext>
         )}
 
         {/* List View (placeholder) */}
@@ -643,4 +672,3 @@ export const Tasks: React.FC = () => {
     </Page>
   )
 }
-

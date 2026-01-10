@@ -16,10 +16,13 @@ import { Avatar, AvatarFallback } from '../components/ui/avatar'
 import { Textarea } from '../components/ui/textarea'
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover'
 import { Calendar } from '../components/ui/calendar'
+import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog'
 import { format } from 'date-fns'
 import { 
   ArrowLeft, 
   ChevronRight, 
+  ChevronLeft,
   Clock,
   Bold,
   Italic,
@@ -32,7 +35,10 @@ import {
   Heading3,
   Send,
   Trash2,
-  CalendarIcon
+  CalendarIcon,
+  Search,
+  Link as LinkIcon,
+  X as XIcon
 } from 'lucide-react'
 import { useSupabaseAppState } from '../hooks/useSupabaseAppState'
 import { supabase } from '../lib/supabase'
@@ -316,11 +322,30 @@ export const TaskDetail: React.FC = () => {
   const [hours, setHours] = useState<number>(0)
   const [entryDate, setEntryDate] = useState<Date | undefined>(undefined)
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
+  const [startTime, setStartTime] = useState<string>('')
+  const [endTime, setEndTime] = useState<string>('')
+  const [entryType, setEntryType] = useState<'planned' | 'reported'>('reported')
   
   // Comments state
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState('')
   const [loadingComments, setLoadingComments] = useState(false)
+  
+  // Related time entries state
+  const [relatedTimeEntries, setRelatedTimeEntries] = useState<TimeEntry[]>([])
+  const [allProjectTimeEntries, setAllProjectTimeEntries] = useState<TimeEntry[]>([])
+  const [timeEntrySearch, setTimeEntrySearch] = useState('')
+  const [loadingTimeEntries, setLoadingTimeEntries] = useState(false)
+  const [isTimeEntryModalOpen, setIsTimeEntryModalOpen] = useState(false)
+  
+  // Navigation state for prev/next tasks
+  const [allTaskNumbers, setAllTaskNumbers] = useState<string[]>([])
+  const [currentTaskIndex, setCurrentTaskIndex] = useState(-1)
+
+  // Load all task numbers for prev/next navigation
+  useEffect(() => {
+    loadAllTaskNumbers()
+  }, [])
 
   // Load task data
   useEffect(() => {
@@ -335,6 +360,37 @@ export const TaskDetail: React.FC = () => {
       loadComments()
     }
   }, [taskId])
+
+  // Load time entries when projectId and taskId are available
+  useEffect(() => {
+    if (projectId && taskId) {
+      loadTimeEntries()
+    }
+  }, [projectId, taskId])
+
+  // Update current task index when task or allTaskNumbers changes
+  useEffect(() => {
+    if (task && task.task_number && allTaskNumbers.length > 0) {
+      setCurrentTaskIndex(allTaskNumbers.indexOf(task.task_number))
+    }
+  }, [task, allTaskNumbers])
+
+  const loadAllTaskNumbers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('time_entries')
+        .select('task_number')
+        .not('task_number', 'is', null)
+        .order('created_at', { ascending: false })
+
+      if (!error && data) {
+        const taskNumbers = data.map(t => t.task_number).filter(Boolean)
+        setAllTaskNumbers(taskNumbers)
+      }
+    } catch (error) {
+      console.error('Error loading task numbers:', error)
+    }
+  }
 
   const loadTask = async () => {
     if (!taskNumber) return
@@ -369,6 +425,17 @@ export const TaskDetail: React.FC = () => {
         setProjectId(data.project_id)
         setHours(data.duration_minutes ? Math.round(data.duration_minutes / 60 * 10) / 10 : 0)
         setEntryDate(data.start_time ? new Date(data.start_time) : undefined)
+        setEntryType(data.entry_type || 'reported')
+        
+        // Set start and end times
+        if (data.start_time) {
+          const start = new Date(data.start_time)
+          setStartTime(format(start, 'HH:mm'))
+        }
+        if (data.end_time) {
+          const end = new Date(data.end_time)
+          setEndTime(format(end, 'HH:mm'))
+        }
         
         // Track recently opened entry
         try {
@@ -427,6 +494,97 @@ export const TaskDetail: React.FC = () => {
       console.error('Error loading comments:', error)
     } finally {
       setLoadingComments(false)
+    }
+  }
+
+  const loadTimeEntries = async () => {
+    if (!projectId || !taskId) return
+    
+    setLoadingTimeEntries(true)
+    try {
+      console.log('Loading time entries for project:', projectId, 'task:', taskId)
+      
+      // Load all time entries for this project (excluding this task itself)
+      const { data: allEntries, error: allError } = await supabase
+        .from('time_entries')
+        .select('*')
+        .eq('project_id', projectId)
+        .neq('id', taskId) // Exclude the current task
+        .order('start_time', { ascending: false })
+
+      console.log('All entries from project:', allEntries?.length || 0)
+
+      // Load time entries already linked to this task
+      const { data: linkedEntries, error: linkedError } = await supabase
+        .from('time_entries')
+        .select('*')
+        .eq('task_id', taskId)
+        .neq('id', taskId) // Exclude the current task
+        .order('start_time', { ascending: false })
+
+      console.log('Already linked entries:', linkedEntries?.length || 0)
+
+      if (allError) {
+        console.error('Error loading all entries:', allError)
+      }
+      
+      if (linkedError) {
+        console.error('Error loading linked entries:', linkedError)
+      }
+
+      if (!allError && allEntries) {
+        setAllProjectTimeEntries(allEntries)
+      }
+
+      if (!linkedError && linkedEntries) {
+        setRelatedTimeEntries(linkedEntries)
+      }
+    } catch (error) {
+      console.error('Error loading time entries:', error)
+    } finally {
+      setLoadingTimeEntries(false)
+    }
+  }
+
+  const handleLinkTimeEntry = async (entryId: string) => {
+    if (!taskId) return
+
+    try {
+      const { error } = await supabase
+        .from('time_entries')
+        .update({ task_id: taskId })
+        .eq('id', entryId)
+
+      if (error) {
+        console.error('Error linking time entry:', error)
+        toast.error('Failed to link time entry')
+      } else {
+        toast.success('Time entry linked to task')
+        loadTimeEntries() // Reload to update both lists
+      }
+    } catch (error) {
+      console.error('Error linking time entry:', error)
+      toast.error('Failed to link time entry')
+    }
+  }
+
+  const handleUnlinkTimeEntry = async (entryId: string) => {
+    try {
+      const { error } = await supabase
+        .from('time_entries')
+        .update({ task_id: null })
+        .eq('id', entryId)
+
+      if (error) {
+        console.error('Error unlinking time entry:', error)
+        toast.error('Failed to unlink time entry')
+      } else {
+        toast.success('Time entry unlinked from task')
+        loadTimeEntries() // Reload to update both lists
+      }
+    } catch (error) {
+      console.error('Error unlinking time entry:', error)
+      toast.error('Failed to unlink time entry')
     }
   }
 
@@ -521,6 +679,93 @@ export const TaskDetail: React.FC = () => {
     }
     
     saveTask(updates)
+  }
+
+  const handleStartTimeChange = (time: string) => {
+    setStartTime(time)
+    
+    if (!entryDate) return
+    
+    const [hours, minutes] = time.split(':').map(Number)
+    const newStartTime = new Date(entryDate)
+    newStartTime.setHours(hours, minutes, 0, 0)
+    
+    const updates: any = { start_time: newStartTime.toISOString() }
+    
+    // If end time is set, recalculate duration
+    if (endTime) {
+      const [endHours, endMinutes] = endTime.split(':').map(Number)
+      const newEndTime = new Date(entryDate)
+      newEndTime.setHours(endHours, endMinutes, 0, 0)
+      
+      if (newEndTime > newStartTime) {
+        updates.end_time = newEndTime.toISOString()
+        const durationMinutes = Math.round((newEndTime.getTime() - newStartTime.getTime()) / (1000 * 60))
+        updates.duration_minutes = durationMinutes
+        setHours(Math.round(durationMinutes / 60 * 10) / 10)
+      }
+    }
+    
+    saveTask(updates)
+  }
+
+  const handleEndTimeChange = (time: string) => {
+    setEndTime(time)
+    
+    if (!entryDate) return
+    
+    const [hours, minutes] = time.split(':').map(Number)
+    const newEndTime = new Date(entryDate)
+    newEndTime.setHours(hours, minutes, 0, 0)
+    
+    const updates: any = { end_time: newEndTime.toISOString() }
+    
+    // If start time is set, recalculate duration
+    if (startTime) {
+      const [startHours, startMinutes] = startTime.split(':').map(Number)
+      const newStartTime = new Date(entryDate)
+      newStartTime.setHours(startHours, startMinutes, 0, 0)
+      
+      if (newEndTime > newStartTime) {
+        const durationMinutes = Math.round((newEndTime.getTime() - newStartTime.getTime()) / (1000 * 60))
+        updates.duration_minutes = durationMinutes
+        setHours(Math.round(durationMinutes / 60 * 10) / 10)
+      }
+    }
+    
+    saveTask(updates)
+  }
+
+  const handleEntryTypeChange = (newType: 'planned' | 'reported') => {
+    setEntryType(newType)
+    saveTask({ entry_type: newType })
+  }
+
+  // Navigation functions
+  const handlePrevTask = () => {
+    if (currentTaskIndex > 0 && allTaskNumbers.length > 0) {
+      const prevTaskNumber = allTaskNumbers[currentTaskIndex - 1]
+      const slug = prevTaskNumber.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      navigate(`/tasks/${prevTaskNumber}/${slug}`)
+    }
+  }
+
+  const handleNextTask = () => {
+    if (currentTaskIndex >= 0 && currentTaskIndex < allTaskNumbers.length - 1) {
+      const nextTaskNumber = allTaskNumbers[currentTaskIndex + 1]
+      const slug = nextTaskNumber.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      navigate(`/tasks/${nextTaskNumber}/${slug}`)
+    }
+  }
+
+  const handleGoToTimetable = () => {
+    if (task && task.start_time) {
+      const date = new Date(task.start_time)
+      const dateStr = format(date, 'yyyy-MM-dd')
+      navigate(`/timetable?date=${dateStr}&view=week`)
+    } else {
+      navigate('/timetable')
+    }
   }
 
   // Add comment
@@ -621,23 +866,60 @@ export const TaskDetail: React.FC = () => {
         {/* Left Side - Breadcrumbs + Content */}
         <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
           {/* Row 0: Back button + Breadcrumb */}
-          <div className="flex items-center gap-2 p-4 mb-6 border-b border-border">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate('/tasks')}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Tasks
-            </Button>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <Badge variant="outline" className="font-mono text-xs">
-              {task.task_number}
-            </Badge>
-            {saving && (
-              <span className="text-xs text-muted-foreground ml-2">Saving...</span>
-            )}
+          <div className="flex items-center justify-between gap-2 p-4 mb-6 border-b border-border">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/tasks')}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Tasks
+              </Button>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <Badge variant="outline" className="font-mono text-xs">
+                {task.task_number}
+              </Badge>
+              {saving && (
+                <span className="text-xs text-muted-foreground ml-2">Saving...</span>
+              )}
+            </div>
+            
+            {/* Navigation buttons */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleGoToTimetable}
+                className="flex items-center gap-2"
+              >
+                <CalendarIcon className="h-4 w-4" />
+                View in Timetable
+              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handlePrevTask}
+                  disabled={currentTaskIndex <= 0}
+                  className="h-8 w-8 p-0"
+                  title="Previous Task"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleNextTask}
+                  disabled={currentTaskIndex < 0 || currentTaskIndex >= allTaskNumbers.length - 1}
+                  className="h-8 w-8 p-0"
+                  title="Next Task"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </div>
 
           {/* Content body - centered with max-width */}
@@ -674,6 +956,55 @@ export const TaskDetail: React.FC = () => {
               onChange={handleDescriptionChange}
               placeholder="Add a description..."
             />
+          </div>
+
+          {/* Row 2.5: Related Time Entries */}
+          <div className="mb-6">
+            <Label className="text-sm font-medium mb-3 block">Related Time Entries</Label>
+            
+            {/* Linked Time Entries List */}
+            {relatedTimeEntries.length > 0 && (
+              <div className="space-y-2 mb-4">
+                {relatedTimeEntries.map((entry) => (
+                  <div key={entry.id} className="flex items-center justify-between p-3 border border-border rounded-md bg-muted/50">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {entry.description || 'Untitled entry'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(entry.start_time), 'MMM d, yyyy HH:mm')}
+                        {entry.end_time && ` - ${format(new Date(entry.end_time), 'HH:mm')}`}
+                        {entry.duration_minutes && ` (${(entry.duration_minutes / 60).toFixed(1)}h)`}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleUnlinkTimeEntry(entry.id)}
+                      className="ml-2"
+                      title="Unlink time entry"
+                    >
+                      <XIcon className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Search field - opens modal */}
+            <div 
+              className="relative cursor-pointer"
+              onClick={() => setIsTimeEntryModalOpen(true)}
+            >
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                type="text"
+                placeholder="Search and link time entries..."
+                value=""
+                readOnly
+                className="pl-10 cursor-pointer"
+              />
+            </div>
           </div>
 
           {/* Row 3: Comments */}
@@ -854,6 +1185,27 @@ export const TaskDetail: React.FC = () => {
                 </Popover>
               </div>
 
+              {/* Start Time & End Time */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Time Range</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => handleStartTimeChange(e.target.value)}
+                    placeholder="Start"
+                    className="w-full"
+                  />
+                  <Input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => handleEndTimeChange(e.target.value)}
+                    placeholder="End"
+                    className="w-full"
+                  />
+                </div>
+              </div>
+
               {/* Total Hours */}
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Total Hours</Label>
@@ -870,16 +1222,110 @@ export const TaskDetail: React.FC = () => {
                 </div>
               </div>
 
-              {/* Entry Type Badge */}
+              {/* Entry Type Tabs */}
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Type</Label>
-                <Badge variant="outline" className="w-full justify-center py-1">
-                  {task.entry_type === 'planned' ? 'Planned' : 'Reported'}
-                </Badge>
+                <Label className="text-xs text-muted-foreground">Entry Type</Label>
+                <Tabs 
+                  value={entryType} 
+                  onValueChange={(value) => handleEntryTypeChange(value as 'planned' | 'reported')}
+                  className="w-full"
+                >
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="reported">Reported</TabsTrigger>
+                    <TabsTrigger value="planned">Planned</TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </div>
             </div>
         </div>
       </div>
+
+      {/* Time Entry Link Modal */}
+      <Dialog open={isTimeEntryModalOpen} onOpenChange={setIsTimeEntryModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Link Time Entries to Task</DialogTitle>
+          </DialogHeader>
+
+          {/* Search within modal */}
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search time entries..."
+              value={timeEntrySearch}
+              onChange={(e) => setTimeEntrySearch(e.target.value)}
+              className="pl-10"
+              autoFocus
+            />
+          </div>
+
+          {/* Available Time Entries to Link */}
+          <div className="flex-1 overflow-y-auto">
+            {loadingTimeEntries ? (
+              <div className="flex items-center justify-center p-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {allProjectTimeEntries
+                  .filter(entry => 
+                    !relatedTimeEntries.some(re => re.id === entry.id) &&
+                    (timeEntrySearch === '' || 
+                      entry.description?.toLowerCase().includes(timeEntrySearch.toLowerCase()))
+                  )
+                  .map((entry) => (
+                    <div key={entry.id} className="flex items-center justify-between p-3 border border-border rounded-md hover:bg-muted/50 transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {entry.description || 'Untitled entry'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(entry.start_time), 'MMM d, yyyy HH:mm')}
+                          {entry.end_time && ` - ${format(new Date(entry.end_time), 'HH:mm')}`}
+                          {entry.duration_minutes && ` (${(entry.duration_minutes / 60).toFixed(1)}h)`}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          handleLinkTimeEntry(entry.id)
+                          setIsTimeEntryModalOpen(false)
+                          setTimeEntrySearch('')
+                        }}
+                        className="ml-2"
+                      >
+                        <LinkIcon className="h-4 w-4 mr-2" />
+                        Link
+                      </Button>
+                    </div>
+                  ))}
+                {allProjectTimeEntries.filter(entry => 
+                  !relatedTimeEntries.some(re => re.id === entry.id) &&
+                  (timeEntrySearch === '' || 
+                    entry.description?.toLowerCase().includes(timeEntrySearch.toLowerCase()))
+                ).length === 0 && (
+                  <div className="text-center p-8">
+                    <p className="text-sm text-muted-foreground">
+                      {timeEntrySearch ? 'No time entries match your search' : 'No available time entries from this project'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end pt-4 border-t mt-4">
+            <Button variant="outline" onClick={() => {
+              setIsTimeEntryModalOpen(false)
+              setTimeEntrySearch('')
+            }}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Page>
   )
 }

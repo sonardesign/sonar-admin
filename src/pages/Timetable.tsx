@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Calendar, momentLocalizer, Views, Event as RBCEvent } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import moment from 'moment';
@@ -170,6 +171,7 @@ const CustomHeader = ({
 };
 
 export const Timetable: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { saveLastPage } = useLastPage();
   const { projects, timeEntries, getActiveProjects, createTimeEntry, updateTimeEntry, deleteTimeEntry, loading, error } = useSupabaseAppState();
@@ -236,6 +238,7 @@ export const Timetable: React.FC = () => {
   const [editEntryType, setEditEntryType] = useState<'planned' | 'reported'>('reported');
   const [editStartTime, setEditStartTime] = useState('');
   const [editEndTime, setEditEndTime] = useState('');
+  const [editDuration, setEditDuration] = useState('');
 
   const activeProjects = getActiveProjects();
 
@@ -389,6 +392,56 @@ export const Timetable: React.FC = () => {
     };
   }, []);
 
+  // Handle duration change - update end time based on start time and new duration
+  const handleEditDurationChange = (newDuration: string) => {
+    setEditDuration(newDuration);
+    
+    if (!editStartTime || !newDuration.match(/^\d{1,2}:\d{2}$/)) return;
+    
+    const [dh, dm] = newDuration.split(':').map(Number);
+    const [sh, sm] = editStartTime.split(':').map(Number);
+    
+    const totalMinutes = (sh * 60 + sm) + (dh * 60 + dm);
+    const endHours = Math.floor(totalMinutes / 60) % 24;
+    const endMinutes = totalMinutes % 60;
+    
+    setEditEndTime(`${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`);
+  };
+
+  // Handle start time change - update duration
+  const handleEditStartTimeChange = (newStartTime: string) => {
+    setEditStartTime(newStartTime);
+    
+    if (!newStartTime || !editEndTime) return;
+    
+    const [sh, sm] = newStartTime.split(':').map(Number);
+    const [eh, em] = editEndTime.split(':').map(Number);
+    const totalMinutes = (eh * 60 + em) - (sh * 60 + sm);
+    
+    if (totalMinutes >= 0) {
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      setEditDuration(`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`);
+    }
+  };
+
+  // Handle end time change - update duration
+  const handleEditEndTimeChange = (newEndTime: string) => {
+    setEditEndTime(newEndTime);
+    
+    if (!editStartTime || !newEndTime) return;
+    
+    const [sh, sm] = editStartTime.split(':').map(Number);
+    const [eh, em] = newEndTime.split(':').map(Number);
+    const totalMinutes = (eh * 60 + em) - (sh * 60 + sm);
+    
+    if (totalMinutes >= 0) {
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      setEditDuration(`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`);
+    }
+  };
+
   // Handle slot selection (for creating new time entries)
   const handleSelectSlot = useCallback(({ start, end }: { start: Date; end: Date }) => {
     const now = new Date();
@@ -410,8 +463,19 @@ export const Timetable: React.FC = () => {
     setEditingTimeEntry(event);
     setEditProjectId(event.resource?.projectId || '');
     setEditDescription(event.resource?.description || '');
-    setEditStartTime(moment(event.start).format('HH:mm'));
-    setEditEndTime(moment(event.end).format('HH:mm'));
+    const startTimeStr = moment(event.start).format('HH:mm');
+    const endTimeStr = moment(event.end).format('HH:mm');
+    setEditStartTime(startTimeStr);
+    setEditEndTime(endTimeStr);
+    
+    // Calculate initial duration
+    const [sh, sm] = startTimeStr.split(':').map(Number);
+    const [eh, em] = endTimeStr.split(':').map(Number);
+    const totalMinutes = (eh * 60 + em) - (sh * 60 + sm);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    setEditDuration(`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`);
+    
     // Determine entry type from the actual entry data
     const now = new Date();
     const isFuture = event.start > now;
@@ -528,6 +592,7 @@ export const Timetable: React.FC = () => {
       setEditEntryType('reported');
       setEditStartTime('');
       setEditEndTime('');
+      setEditDuration('');
     } catch (error) {
       console.error('Error updating time entry:', error);
       notifications.timeEntry.updateError(error instanceof Error ? error.message : 'Unknown error');
@@ -550,8 +615,8 @@ export const Timetable: React.FC = () => {
     }
   };
 
-  // Navigation
-  const navigate = (action: 'PREV' | 'NEXT' | 'TODAY') => {
+  // Calendar navigation
+  const handleCalendarNavigate = (action: 'PREV' | 'NEXT' | 'TODAY') => {
     let newDate = new Date(currentDate);
     
     if (action === 'PREV') {
@@ -619,7 +684,7 @@ export const Timetable: React.FC = () => {
                 </div>
               )}
               <div className="flex items-center space-x-2">
-                <Button variant="outline" size="sm" onClick={() => navigate('PREV')}>
+                <Button variant="outline" size="sm" onClick={() => handleCalendarNavigate('PREV')}>
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <Popover>
@@ -641,12 +706,12 @@ export const Timetable: React.FC = () => {
                     />
                   </PopoverContent>
                 </Popover>
-                <Button variant="outline" size="sm" onClick={() => navigate('NEXT')}>
+                <Button variant="outline" size="sm" onClick={() => handleCalendarNavigate('NEXT')}>
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
               
-              <Button onClick={() => navigate('TODAY')} variant="outline">
+              <Button onClick={() => handleCalendarNavigate('TODAY')} variant="outline">
                 Today
               </Button>
             </div>
@@ -861,14 +926,25 @@ export const Timetable: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="editDuration">Duration (HH:MM)</Label>
+                    <Input
+                      id="editDuration"
+                      type="text"
+                      placeholder="00:00"
+                      value={editDuration}
+                      onChange={(e) => handleEditDurationChange(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
                   <div>
                     <Label htmlFor="editStartTime">Start Time</Label>
                     <Input
                       id="editStartTime"
                       type="time"
                       value={editStartTime}
-                      onChange={(e) => setEditStartTime(e.target.value)}
+                      onChange={(e) => handleEditStartTimeChange(e.target.value)}
                       className="mt-1"
                     />
                   </div>
@@ -878,7 +954,7 @@ export const Timetable: React.FC = () => {
                       id="editEndTime"
                       type="time"
                       value={editEndTime}
-                      onChange={(e) => setEditEndTime(e.target.value)}
+                      onChange={(e) => handleEditEndTimeChange(e.target.value)}
                       className="mt-1"
                     />
                   </div>
@@ -893,6 +969,19 @@ export const Timetable: React.FC = () => {
                     onChange={(e) => setEditDescription(e.target.value)}
                     className="mt-1"
                   />
+                  {editingTimeEntry?.task_number && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => {
+                        const slug = editingTimeEntry.task_number?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || '';
+                        navigate(`/tasks/${editingTimeEntry.task_number}/${slug}`);
+                      }}
+                    >
+                      Jump to Task
+                    </Button>
+                  )}
                 </div>
 
                 <div className="flex justify-between pt-4 border-t">
@@ -900,16 +989,6 @@ export const Timetable: React.FC = () => {
                     Delete Entry
                   </Button>
                   <div className="flex space-x-2">
-                    <span className="text-sm text-muted-foreground mr-4 flex items-center">
-                      Duration: {editStartTime && editEndTime ? (() => {
-                        const [sh, sm] = editStartTime.split(':').map(Number);
-                        const [eh, em] = editEndTime.split(':').map(Number);
-                        const totalMinutes = (eh * 60 + em) - (sh * 60 + sm);
-                        const hours = Math.floor(totalMinutes / 60);
-                        const minutes = totalMinutes % 60;
-                        return `${hours}h ${minutes}m`;
-                      })() : editingTimeEntry?.resource?.durationLabel || '0h 0m'}
-                    </span>
                     <Button variant="outline" onClick={() => setIsEditTimeEntryOpen(false)}>
                       Cancel
                     </Button>
@@ -937,14 +1016,25 @@ export const Timetable: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="editDurationPlanned">Duration (HH:MM)</Label>
+                    <Input
+                      id="editDurationPlanned"
+                      type="text"
+                      placeholder="00:00"
+                      value={editDuration}
+                      onChange={(e) => handleEditDurationChange(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
                   <div>
                     <Label htmlFor="editStartTimePlanned">Start Time</Label>
                     <Input
                       id="editStartTimePlanned"
                       type="time"
                       value={editStartTime}
-                      onChange={(e) => setEditStartTime(e.target.value)}
+                      onChange={(e) => handleEditStartTimeChange(e.target.value)}
                       className="mt-1"
                     />
                   </div>
@@ -954,21 +1044,34 @@ export const Timetable: React.FC = () => {
                       id="editEndTimePlanned"
                       type="time"
                       value={editEndTime}
-                      onChange={(e) => setEditEndTime(e.target.value)}
+                      onChange={(e) => handleEditEndTimeChange(e.target.value)}
                       className="mt-1"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <Label htmlFor="editTaskDescription">Task Title</Label>
+                  <Label htmlFor="editTaskDescriptionPlanned">Task Title</Label>
                   <Textarea
-                    id="editTaskDescription"
+                    id="editTaskDescriptionPlanned"
                     placeholder="Enter task title..."
                     value={editDescription}
                     onChange={(e) => setEditDescription(e.target.value)}
                     className="mt-1"
                   />
+                  {editingTimeEntry?.task_number && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => {
+                        const slug = editingTimeEntry.task_number?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || '';
+                        navigate(`/tasks/${editingTimeEntry.task_number}/${slug}`);
+                      }}
+                    >
+                      Jump to Task
+                    </Button>
+                  )}
                 </div>
 
                 <div className="flex justify-between pt-4 border-t">
@@ -976,16 +1079,6 @@ export const Timetable: React.FC = () => {
                     Delete Entry
                   </Button>
                   <div className="flex space-x-2">
-                    <span className="text-sm text-muted-foreground mr-4 flex items-center">
-                      Duration: {editStartTime && editEndTime ? (() => {
-                        const [sh, sm] = editStartTime.split(':').map(Number);
-                        const [eh, em] = editEndTime.split(':').map(Number);
-                        const totalMinutes = (eh * 60 + em) - (sh * 60 + sm);
-                        const hours = Math.floor(totalMinutes / 60);
-                        const minutes = totalMinutes % 60;
-                        return `${hours}h ${minutes}m`;
-                      })() : editingTimeEntry?.resource?.durationLabel || '0h 0m'}
-                    </span>
                     <Button variant="outline" onClick={() => setIsEditTimeEntryOpen(false)}>
                       Cancel
                     </Button>

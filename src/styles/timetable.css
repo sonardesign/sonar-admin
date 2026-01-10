@@ -60,6 +60,14 @@
   white-space: pre-line; /* Allow line breaks */
 }
 
+/* Make all text white in dark mode */
+.dark .rbc-event,
+.dark .rbc-event *,
+.dark .rbc-event-content,
+.dark .rbc-event-content * {
+  color: white !important;
+}
+
 .rbc-event:hover {
   opacity: 0.8;
   transform: translateY(-1px);
@@ -77,6 +85,16 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+/* Force white text in dark mode for better visibility */
+.dark .rbc-event-content {
+  color: white;
+}
+
+/* Ensure text is dark in light mode */
+:root:not(.dark) .rbc-event-content {
+  color: hsl(var(--foreground));
 }
 
 /* Hide the default event label */

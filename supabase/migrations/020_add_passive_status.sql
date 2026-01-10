@@ -11,3 +11,5 @@ ALTER TABLE projects ADD CONSTRAINT projects_status_check
 UPDATE projects SET status = 'active' WHERE status IS NULL;
 
 
+
+
