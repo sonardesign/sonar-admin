@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog'
 import { Badge } from '../components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
-import { ArrowLeft, Plus, Clock, DollarSign, Receipt, Calculator, Edit2, Users, Trash2 } from 'lucide-react'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs'
+import { ArrowLeft, Plus, Clock, DollarSign, Receipt, Calculator, Edit2, Users, Trash2, BarChart3, ListTodo, Wallet, Settings, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useSupabaseAppState } from '../hooks/useSupabaseAppState'
 import { useProjectsData } from '../hooks/useProjectsData'
 import { usePermissions } from '../hooks/usePermissions'
@@ -17,6 +18,7 @@ import { projectMembersService } from '../services/supabaseService'
 import { Project, TimeEntry } from '../types'
 import { Page } from '../components/Page'
 import { notifications } from '../lib/notifications'
+import { cn } from '../lib/utils'
 
 interface MaterialCost {
   id: string
@@ -69,6 +71,11 @@ export const ProjectDetails: React.FC = () => {
   const [editingField, setEditingField] = useState<'code' | 'name' | null>(null)
   const [editedCode, setEditedCode] = useState('')
   const [editedName, setEditedName] = useState('')
+  const [activeTab, setActiveTab] = useState('workload')
+  
+  // Workload view state
+  const [workloadView, setWorkloadView] = useState<'weekly' | 'monthly'>('monthly')
+  const [workloadOffset, setWorkloadOffset] = useState(0) // 0 = current period, -1 = previous, 1 = next
   
   const { isAdmin } = usePermissions()
 
@@ -406,7 +413,7 @@ export const ProjectDetails: React.FC = () => {
   return (
     <Page>
       {/* Full-width top bar */}
-      <div className="mb-8 -mx-6 -mt-6 px-6 py-4 border-b border-border bg-muted/30">
+      <div className="-mx-6 -mt-6 px-6 py-4 border-b border-border">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
@@ -479,8 +486,386 @@ export const ProjectDetails: React.FC = () => {
         </div>
       </div>
       
-      <div className="mb-8">
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
+        <TabsList className="mb-6">
+          <TabsTrigger value="workload" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Workload
+          </TabsTrigger>
+          <TabsTrigger value="tasks" className="flex items-center gap-2">
+            <ListTodo className="h-4 w-4" />
+            Tasks
+          </TabsTrigger>
+          <TabsTrigger value="finances" className="flex items-center gap-2">
+            <Wallet className="h-4 w-4" />
+            Finances
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Settings
+          </TabsTrigger>
+        </TabsList>
 
+        {/* Workload Tab */}
+        <TabsContent value="workload">
+          {/* Column Graph - Monthly Workload */}
+          <Card className="mb-6">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div>
+                    <CardTitle className="flex items-center gap-3">
+                      Monthly Workload
+                      {(() => {
+                        const totalHours = projectTimeEntries.reduce((sum, entry) => 
+                          sum + ((entry.duration_minutes || entry.duration || 0) / 60), 0
+                        )
+                        return (
+                          <Badge variant="secondary" className="text-sm">
+                            {totalHours.toFixed(1)}h total
+                          </Badge>
+                        )
+                      })()}
+                    </CardTitle>
+                    <CardDescription>
+                      {(() => {
+                        const now = new Date()
+                        if (workloadView === 'monthly') {
+                          const targetDate = new Date(now.getFullYear(), now.getMonth() + workloadOffset, 1)
+                          return targetDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+                        } else {
+                          const daysOffset = workloadOffset * 7
+                          const targetDate = new Date(now)
+                          targetDate.setDate(targetDate.getDate() + daysOffset)
+                          const startOfWeek = new Date(targetDate)
+                          startOfWeek.setDate(targetDate.getDate() - targetDate.getDay())
+                          const endOfWeek = new Date(startOfWeek)
+                          endOfWeek.setDate(startOfWeek.getDate() + 6)
+                          return `${startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                        }
+                      })()}
+                    </CardDescription>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  {/* View Switcher */}
+                  <div className="flex border rounded-md">
+                    <Button
+                      variant={workloadView === 'weekly' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => {
+                        setWorkloadView('weekly')
+                        setWorkloadOffset(0)
+                      }}
+                      className="rounded-r-none"
+                    >
+                      Weekly
+                    </Button>
+                    <Button
+                      variant={workloadView === 'monthly' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => {
+                        setWorkloadView('monthly')
+                        setWorkloadOffset(0)
+                      }}
+                      className="rounded-l-none"
+                    >
+                      Monthly
+                    </Button>
+                  </div>
+                  
+                  {/* Navigation Buttons */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setWorkloadOffset(prev => prev - 1)}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setWorkloadOffset(prev => prev + 1)}
+                    disabled={workloadOffset >= 0}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px] flex items-end justify-between gap-2">
+                {(() => {
+                  // Calculate date range based on view and offset
+                  const now = new Date()
+                  let days: string[] = []
+                  
+                  if (workloadView === 'monthly') {
+                    const targetDate = new Date(now.getFullYear(), now.getMonth() + workloadOffset, 1)
+                    const year = targetDate.getFullYear()
+                    const month = targetDate.getMonth()
+                    const daysInMonth = new Date(year, month + 1, 0).getDate()
+                    
+                    days = Array.from({ length: daysInMonth }, (_, i) => {
+                      const date = new Date(year, month, i + 1)
+                      return date.toISOString().split('T')[0]
+                    })
+                  } else {
+                    // Weekly view
+                    const daysOffset = workloadOffset * 7
+                    const targetDate = new Date(now)
+                    targetDate.setDate(targetDate.getDate() + daysOffset)
+                    const startOfWeek = new Date(targetDate)
+                    startOfWeek.setDate(targetDate.getDate() - targetDate.getDay())
+                    
+                    days = Array.from({ length: 7 }, (_, i) => {
+                      const date = new Date(startOfWeek)
+                      date.setDate(startOfWeek.getDate() + i)
+                      return date.toISOString().split('T')[0]
+                    })
+                  }
+
+                  // Calculate hours per day
+                  const hoursPerDay = days.map(day => {
+                    const dayEntries = projectTimeEntries.filter(entry => {
+                      const entryDate = entry.start_time?.split('T')[0]
+                      return entryDate === day
+                    })
+                    return dayEntries.reduce((sum, entry) => 
+                      sum + ((entry.duration_minutes || entry.duration || 0) / 60), 0
+                    )
+                  })
+
+                  const maxHours = Math.max(...hoursPerDay, 8)
+
+                  return days.map((day, index) => {
+                    const hours = hoursPerDay[index]
+                    const heightPercent = maxHours > 0 ? (hours / maxHours) * 100 : 0
+                    const date = new Date(day)
+                    const isWeekend = date.getDay() === 0 || date.getDay() === 6
+
+                    return (
+                      <div key={day} className="flex-1 flex flex-col items-center gap-2">
+                        <div 
+                          className={cn(
+                            "w-full rounded-t transition-all hover:opacity-80",
+                            hours > 0 ? "bg-primary" : "bg-muted",
+                            isWeekend && "opacity-50"
+                          )}
+                          style={{ height: `${heightPercent}%`, minHeight: hours > 0 ? '4px' : '0' }}
+                          title={`${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}: ${hours.toFixed(1)}h`}
+                        />
+                        <div className="text-[10px] text-muted-foreground text-center">
+                          {workloadView === 'weekly' ? date.toLocaleDateString('en-US', { weekday: 'short' }) : date.getDate()}
+                        </div>
+                      </div>
+                    )
+                  })
+                })()}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Table - Hours by Assignee per Day */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Hours by Assignee</CardTitle>
+              <CardDescription>Daily breakdown of hours worked by team members</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="sticky left-0 bg-background z-10 min-w-[150px]">Assignee</TableHead>
+                      {(() => {
+                        const now = new Date()
+                        let days: Date[] = []
+                        
+                        if (workloadView === 'monthly') {
+                          const targetDate = new Date(now.getFullYear(), now.getMonth() + workloadOffset, 1)
+                          const year = targetDate.getFullYear()
+                          const month = targetDate.getMonth()
+                          const daysInMonth = new Date(year, month + 1, 0).getDate()
+                          
+                          days = Array.from({ length: daysInMonth }, (_, i) => {
+                            return new Date(year, month, i + 1)
+                          })
+                        } else {
+                          const daysOffset = workloadOffset * 7
+                          const targetDate = new Date(now)
+                          targetDate.setDate(targetDate.getDate() + daysOffset)
+                          const startOfWeek = new Date(targetDate)
+                          startOfWeek.setDate(targetDate.getDate() - targetDate.getDay())
+                          
+                          days = Array.from({ length: 7 }, (_, i) => {
+                            const date = new Date(startOfWeek)
+                            date.setDate(startOfWeek.getDate() + i)
+                            return date
+                          })
+                        }
+                        
+                        return days.map(date => (
+                          <TableHead key={date.toISOString()} className="text-center min-w-[60px] text-xs">
+                            <div>{date.toLocaleDateString('en-US', { month: 'short' })}</div>
+                            <div className="font-bold">{date.getDate()}</div>
+                          </TableHead>
+                        ))
+                      })()}
+                      <TableHead className="text-center min-w-[80px]">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(() => {
+                      // Get unique assignees
+                      const assignees = Array.from(new Set(
+                        projectTimeEntries
+                          .map(entry => entry.user_id)
+                          .filter(Boolean)
+                      )).map(userId => users.find(u => u.id === userId)).filter(Boolean)
+
+                      if (assignees.length === 0) {
+                        return (
+                          <TableRow>
+                            <TableCell colSpan={32} className="text-center text-muted-foreground py-8">
+                              No time entries for this project
+                            </TableCell>
+                          </TableRow>
+                        )
+                      }
+
+                      return assignees.map(user => {
+                        const now = new Date()
+                        let days: string[] = []
+                        
+                        if (workloadView === 'monthly') {
+                          const targetDate = new Date(now.getFullYear(), now.getMonth() + workloadOffset, 1)
+                          const year = targetDate.getFullYear()
+                          const month = targetDate.getMonth()
+                          const daysInMonth = new Date(year, month + 1, 0).getDate()
+                          
+                          days = Array.from({ length: daysInMonth }, (_, i) => {
+                            const date = new Date(year, month, i + 1)
+                            return date.toISOString().split('T')[0]
+                          })
+                        } else {
+                          const daysOffset = workloadOffset * 7
+                          const targetDate = new Date(now)
+                          targetDate.setDate(targetDate.getDate() + daysOffset)
+                          const startOfWeek = new Date(targetDate)
+                          startOfWeek.setDate(targetDate.getDate() - targetDate.getDay())
+                          
+                          days = Array.from({ length: 7 }, (_, i) => {
+                            const date = new Date(startOfWeek)
+                            date.setDate(startOfWeek.getDate() + i)
+                            return date.toISOString().split('T')[0]
+                          })
+                        }
+
+                        const hoursPerDay = days.map(day => {
+                          const dayEntries = projectTimeEntries.filter(entry => 
+                            entry.user_id === user.id && entry.start_time?.split('T')[0] === day
+                          )
+                          return dayEntries.reduce((sum, entry) => 
+                            sum + ((entry.duration_minutes || entry.duration || 0) / 60), 0
+                          )
+                        })
+
+                        const totalHours = hoursPerDay.reduce((sum, h) => sum + h, 0)
+
+                        return (
+                          <TableRow key={user.id}>
+                            <TableCell className="sticky left-0 bg-background z-10 font-medium">
+                              {user.full_name || user.email}
+                            </TableCell>
+                            {hoursPerDay.map((hours, index) => (
+                              <TableCell 
+                                key={index} 
+                                className={cn(
+                                  "text-center text-sm",
+                                  hours > 0 ? "font-medium" : "text-muted-foreground"
+                                )}
+                              >
+                                {hours > 0 ? hours.toFixed(1) : '-'}
+                              </TableCell>
+                            ))}
+                            <TableCell className="text-center font-bold">
+                              {totalHours.toFixed(1)}h
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })
+                    })()}
+                    {/* Total Row */}
+                    {projectTimeEntries.length > 0 && (
+                      <TableRow className="bg-muted/50 font-bold">
+                        <TableCell className="sticky left-0 bg-muted/50 z-10">Total</TableCell>
+                        {(() => {
+                          const now = new Date()
+                          let days: string[] = []
+                          
+                          if (workloadView === 'monthly') {
+                            const targetDate = new Date(now.getFullYear(), now.getMonth() + workloadOffset, 1)
+                            const year = targetDate.getFullYear()
+                            const month = targetDate.getMonth()
+                            const daysInMonth = new Date(year, month + 1, 0).getDate()
+                            
+                            days = Array.from({ length: daysInMonth }, (_, i) => {
+                              const date = new Date(year, month, i + 1)
+                              return date.toISOString().split('T')[0]
+                            })
+                          } else {
+                            const daysOffset = workloadOffset * 7
+                            const targetDate = new Date(now)
+                            targetDate.setDate(targetDate.getDate() + daysOffset)
+                            const startOfWeek = new Date(targetDate)
+                            startOfWeek.setDate(targetDate.getDate() - targetDate.getDay())
+                            
+                            days = Array.from({ length: 7 }, (_, i) => {
+                              const date = new Date(startOfWeek)
+                              date.setDate(startOfWeek.getDate() + i)
+                              return date.toISOString().split('T')[0]
+                            })
+                          }
+
+                          return days.map((day, index) => {
+                            const dayTotal = projectTimeEntries
+                              .filter(entry => entry.start_time?.split('T')[0] === day)
+                              .reduce((sum, entry) => 
+                                sum + ((entry.duration_minutes || entry.duration || 0) / 60), 0
+                              )
+                            return (
+                              <TableCell key={index} className="text-center">
+                                {dayTotal > 0 ? dayTotal.toFixed(1) : '-'}
+                              </TableCell>
+                            )
+                          })
+                        })()}
+                        <TableCell className="text-center">
+                          {projectTimeEntries.reduce((sum, entry) => 
+                            sum + ((entry.duration_minutes || entry.duration || 0) / 60), 0
+                          ).toFixed(1)}h
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tasks Tab */}
+        <TabsContent value="tasks">
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Tasks view coming soon...</p>
+          </div>
+        </TabsContent>
+
+        {/* Finances Tab */}
+        <TabsContent value="finances">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - 2/3 width */}
           <div className="lg:col-span-2 space-y-8">
@@ -739,54 +1124,137 @@ export const ProjectDetails: React.FC = () => {
                         <TableHead>User Name</TableHead>
                         <TableHead>Email</TableHead>
                         <TableHead>Project Role</TableHead>
+                        <TableHead className="text-right">Net Cost</TableHead>
+                        <TableHead className="text-right">Tax (27%)</TableHead>
+                        <TableHead className="text-right">Gross Cost</TableHead>
                         {isAdmin && <TableHead className="w-[50px]"></TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {projectMembers.map((member) => (
-                        <TableRow key={member.id}>
-                          <TableCell className="font-medium">
-                            {member.profiles?.full_name || 'Unknown User'}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-sm">
-                            {member.profiles?.email || ''}
-                          </TableCell>
-                          <TableCell>
-                            {isAdmin ? (
-                              <Select
-                                value={member.role}
-                                onValueChange={(value: 'member' | 'manager') => 
-                                  handleMemberRoleChange(member.id, value)
-                                }
-                              >
-                                <SelectTrigger className="h-8 w-[120px]">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="member">Member</SelectItem>
-                                  <SelectItem value="manager">Manager</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <Badge variant={member.role === 'manager' ? 'default' : 'secondary'}>
-                                {member.role === 'manager' ? 'Manager' : 'Member'}
-                              </Badge>
-                            )}
-                          </TableCell>
-                          {isAdmin && (
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleRemoveMember(member.id)}
-                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                      {projectMembers.map((member) => {
+                        // Calculate costs for this member
+                        const memberEntries = projectTimeEntries.filter(
+                          entry => entry.user_id === member.user_id
+                        )
+                        const totalHours = memberEntries.reduce(
+                          (sum, entry) => sum + ((entry.duration_minutes || entry.duration || 0) / 60), 0
+                        )
+                        const contributor = projectContributors.find(c => c.userId === member.user_id)
+                        const costPerHour = contributor?.costPerHour || 50
+                        const netCost = totalHours * costPerHour
+                        const tax = netCost * 0.27 // 27% tax
+                        const grossCost = netCost + tax
+                        
+                        return (
+                          <TableRow key={member.id}>
+                            <TableCell className="font-medium">
+                              {member.profiles?.full_name || 'Unknown User'}
                             </TableCell>
-                          )}
+                            <TableCell className="text-muted-foreground text-sm">
+                              {member.profiles?.email || ''}
+                            </TableCell>
+                            <TableCell>
+                              {isAdmin ? (
+                                <Select
+                                  value={member.role}
+                                  onValueChange={(value: 'member' | 'manager') => 
+                                    handleMemberRoleChange(member.id, value)
+                                  }
+                                >
+                                  <SelectTrigger className="h-8 w-[120px]">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="member">Member</SelectItem>
+                                    <SelectItem value="manager">Manager</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <Badge variant={member.role === 'manager' ? 'default' : 'secondary'}>
+                                  {member.role === 'manager' ? 'Manager' : 'Member'}
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              {formatCurrency(netCost)}
+                            </TableCell>
+                            <TableCell className="text-right text-muted-foreground">
+                              {formatCurrency(tax)}
+                            </TableCell>
+                            <TableCell className="text-right font-bold">
+                              {formatCurrency(grossCost)}
+                            </TableCell>
+                            {isAdmin && (
+                              <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleRemoveMember(member.id)}
+                                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        )
+                      })}
+                      {/* Total Row */}
+                      {projectMembers.length > 0 && (
+                        <TableRow className="bg-muted/50 font-bold border-t-2">
+                          <TableCell colSpan={3}>Total</TableCell>
+                          <TableCell className="text-right">
+                            {(() => {
+                              const totalNet = projectMembers.reduce((sum, member) => {
+                                const memberEntries = projectTimeEntries.filter(
+                                  entry => entry.user_id === member.user_id
+                                )
+                                const totalHours = memberEntries.reduce(
+                                  (s, entry) => s + ((entry.duration_minutes || entry.duration || 0) / 60), 0
+                                )
+                                const contributor = projectContributors.find(c => c.userId === member.user_id)
+                                const costPerHour = contributor?.costPerHour || 50
+                                return sum + (totalHours * costPerHour)
+                              }, 0)
+                              return formatCurrency(totalNet)
+                            })()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {(() => {
+                              const totalNet = projectMembers.reduce((sum, member) => {
+                                const memberEntries = projectTimeEntries.filter(
+                                  entry => entry.user_id === member.user_id
+                                )
+                                const totalHours = memberEntries.reduce(
+                                  (s, entry) => s + ((entry.duration_minutes || entry.duration || 0) / 60), 0
+                                )
+                                const contributor = projectContributors.find(c => c.userId === member.user_id)
+                                const costPerHour = contributor?.costPerHour || 50
+                                return sum + (totalHours * costPerHour)
+                              }, 0)
+                              return formatCurrency(totalNet * 0.27)
+                            })()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {(() => {
+                              const totalNet = projectMembers.reduce((sum, member) => {
+                                const memberEntries = projectTimeEntries.filter(
+                                  entry => entry.user_id === member.user_id
+                                )
+                                const totalHours = memberEntries.reduce(
+                                  (s, entry) => s + ((entry.duration_minutes || entry.duration || 0) / 60), 0
+                                )
+                                const contributor = projectContributors.find(c => c.userId === member.user_id)
+                                const costPerHour = contributor?.costPerHour || 50
+                                return sum + (totalHours * costPerHour)
+                              }, 0)
+                              const totalTax = totalNet * 0.27
+                              return formatCurrency(totalNet + totalTax)
+                            })()}
+                          </TableCell>
+                          {isAdmin && <TableCell></TableCell>}
                         </TableRow>
-                      ))}
+                      )}
                     </TableBody>
                   </Table>
                 ) : (
@@ -902,7 +1370,15 @@ export const ProjectDetails: React.FC = () => {
             </div>
           </div>
         </div>
-      </div>
+        </TabsContent>
+
+        {/* Settings Tab */}
+        <TabsContent value="settings">
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Settings view coming soon...</p>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Edit Hourly Rate Modal */}
       <Dialog open={isEditRateOpen} onOpenChange={setIsEditRateOpen}>

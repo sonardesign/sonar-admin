@@ -93,7 +93,7 @@ export interface Lead {
   ticket_size?: number; // Amount in HUF
   website?: string;
   notes?: string;
-  contacts?: string[]; // Array of contact names/emails
+  contacts?: string[]; // Array of contact UUIDs
   related_tasks?: string[]; // Array of task IDs
   status: LeadStatus;
   created_by?: string;
@@ -205,3 +205,15 @@ export type ProjectColor =
   | '#8b5cf6' // violet
   | '#ec4899' // pink
   | '#6b7280'; // gray
+
+export interface Contact {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  organization_name?: string;
+  url?: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}

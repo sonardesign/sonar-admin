@@ -81,19 +81,10 @@ export function Combobox({
             {options.map((option) => (
               <CommandItem
                 key={option.value}
-                value={option.label}
-                onSelect={(currentValue) => {
-                  console.log('CommandItem onSelect called with:', currentValue)
-                  const selectedOption = options.find(opt => opt.label === currentValue)
-                  console.log('Found option:', selectedOption)
-                  if (selectedOption) {
-                    onValueChange?.(selectedOption.value)
-                  }
-                  setOpen(false)
-                }}
-                onClick={() => {
-                  console.log('CommandItem onClick called for:', option.label)
-                  onValueChange?.(option.value)
+                value={option.value}
+                keywords={[option.label]}
+                onSelect={(value) => {
+                  onValueChange?.(value)
                   setOpen(false)
                 }}
                 className="flex items-center gap-2 cursor-pointer"

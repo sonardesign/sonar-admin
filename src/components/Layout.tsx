@@ -327,9 +327,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className="flex h-screen bg-background">
-      {/* Sidebar */}
-      <div className="w-64 bg-card">
+    <div className="w-full h-full">
+      {/* Sidebar moved to App.tsx - hiding old sidebar */}
+      <div className="hidden w-64 bg-card">
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="p-6">
@@ -442,12 +442,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="flex-1 overflow-auto">
-          {children}
-        </main>
-      </div>
+      {/* Main content - now just renders children */}
+      {children}
 
       {/* Settings Modal */}
       <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>

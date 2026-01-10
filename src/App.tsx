@@ -3,6 +3,8 @@ import { useAuth } from './hooks/useAuth'
 import { Layout } from './components/Layout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AuthPage } from './components/auth/AuthPage'
+import { SidebarProvider, SidebarInset } from './components/ui/sidebar'
+import { AppSidebar } from './components/app-sidebar'
 import { Dashboard } from './pages/Dashboard'
 import { TimeTracking } from './pages/TimeTracking'
 import { Timetable } from './pages/Timetable'
@@ -17,6 +19,8 @@ import { Tasks } from './pages/Tasks'
 import { TaskDetail } from './pages/TaskDetail'
 import { Funnel } from './pages/Funnel'
 import { LeadDetails } from './pages/LeadDetails'
+import { Contacts } from './pages/Contacts'
+import { CRMReports } from './pages/CRMReports'
 import { Loader2 } from 'lucide-react'
 import { Toaster } from 'sonner'
 import './styles/globals.css'
@@ -46,8 +50,13 @@ function App() {
   // Show main app if user is logged in
   return (
     <Router>
-      <Layout>
-        <Routes>
+      <SidebarProvider defaultOpen={true}>
+        <AppSidebar />
+        <SidebarInset>
+          <div className="flex flex-col h-screen">
+            <div className="flex-1 overflow-auto">
+              <Layout>
+                <Routes>
                 <Route path="/" element={
                   <ProtectedRoute>
                     <Dashboard />
@@ -118,9 +127,22 @@ function App() {
                     <LeadDetails />
                   </ProtectedRoute>
                 } />
-        </Routes>
-      </Layout>
-      <Toaster 
+                <Route path="/contacts" element={
+                  <ProtectedRoute>
+                    <Contacts />
+                  </ProtectedRoute>
+                } />
+                <Route path="/crm-reports" element={
+                  <ProtectedRoute>
+                    <CRMReports />
+                  </ProtectedRoute>
+                } />
+                </Routes>
+              </Layout>
+            </div>
+          </div>
+        </SidebarInset>
+        <Toaster 
         position="bottom-right" 
         theme="system"
         richColors
@@ -134,7 +156,8 @@ function App() {
             closeButton: 'bg-card border-border text-foreground hover:bg-muted',
           },
         }}
-      />
+        />
+      </SidebarProvider>
     </Router>
   )
 }

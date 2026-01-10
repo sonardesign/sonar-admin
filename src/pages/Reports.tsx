@@ -7,8 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover'
 import { Calendar } from '../components/ui/calendar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui/dropdown-menu'
-import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '../components/ui/chart'
-import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts'
+import { Pie, PieChart, Cell, Tooltip, Bar, BarChart, XAxis, YAxis, CartesianGrid } from 'recharts'
 import { useSupabaseAppState } from '../hooks/useSupabaseAppState'
 import { PDFExportService } from '../services/pdfExportService'
 import { CSVExportService } from '../services/csvExportService'
@@ -184,51 +183,28 @@ export const Reports: React.FC = () => {
   const totalEntries = filteredEntries.length
   const uniqueProjects = new Set(filteredEntries.map(entry => entry.projectId)).size
 
-  // Prepare chart data - Interactive Bar Chart style
-  const chartData = useMemo(() => {
-    const dateInterval = eachDayOfInterval({ start: dateRange.from, end: dateRange.to })
+  // Prepare pie chart data - Group by project
+  const pieChartData = useMemo(() => {
+    const projectHours: { [key: string]: { hours: number, color: string } } = {}
     
-    return dateInterval.map(date => {
-      const dateStr = format(date, 'yyyy-MM-dd')
-      const dayEntries = filteredEntries.filter(entry => entry.date === dateStr)
+    filteredEntries.forEach(entry => {
+      const project = projects.find(p => p.id === entry.projectId)
+      const projectName = project?.name || 'Unknown'
+      const projectColor = project?.color || '#888888'
       
-      // Group by project for the interactive chart
-      const projectHours: { [key: string]: number } = {}
-      dayEntries.forEach(entry => {
-        const project = projects.find(p => p.id === entry.projectId)
-        const projectName = project?.name || 'Unknown'
-        projectHours[projectName] = (projectHours[projectName] || 0) + (entry.duration / 60)
-      })
-      
-      return {
-        date: format(date, 'yyyy-MM-dd'),
-        ...projectHours
+      if (!projectHours[projectName]) {
+        projectHours[projectName] = { hours: 0, color: projectColor }
       }
-    })
-  }, [filteredEntries, dateRange, projects])
-
-  // Create chart config based on available projects
-  const chartConfig = useMemo(() => {
-    const config: ChartConfig = {}
-    
-    projects.forEach((project, index) => {
-      config[project.name] = {
-        label: project.name,
-        color: `hsl(var(--chart-${(index % 5) + 1}))`,
-      }
+      projectHours[projectName].hours += (entry.duration / 60)
     })
     
-    return config
-  }, [projects]) satisfies ChartConfig
+    return Object.entries(projectHours).map(([name, data]) => ({
+      name,
+      value: parseFloat(data.hours.toFixed(2)),
+      color: data.color
+    }))
+  }, [filteredEntries, projects])
 
-  // Calculate totals for the summary
-  const totalDesktop = useMemo(() => {
-    return chartData.reduce((acc, curr) => {
-      return acc + Object.entries(curr)
-        .filter(([key]) => key !== 'date')
-        .reduce((sum, [, value]) => sum + (value as number), 0)
-    }, 0)
-  }, [chartData])
 
   return (
     <Page loading={loading} loadingText="Loading reports...">
@@ -390,135 +366,125 @@ export const Reports: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Time Chart - Interactive Bar Chart */}
-      <Card>
-        <CardHeader className="flex items-center gap-2 space-y-0 border-b py-5 sm:flex-row">
-          <div className="grid flex-1 gap-1 text-center sm:text-left">
-            <CardTitle>Time Tracking Overview - Interactive</CardTitle>
-            <CardDescription>
-              Showing total hours logged for the selected period
-            </CardDescription>
-          </div>
-          <div className="flex">
-            {Object.entries(chartConfig).map(([key, config]) => (
-              <div key={key} className="flex items-center gap-2 px-3">
-                <div
-                  className="h-3 w-3 rounded-sm"
-                  style={{ backgroundColor: config.color }}
-                />
-                <span className="text-xs text-muted-foreground">{config.label}</span>
-                <span className="text-xs font-medium">
-                  {chartData.reduce((acc, curr) => acc + ((curr[key] as number) || 0), 0).toFixed(1)}h
-                </span>
+      {/* Two Column Layout */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Left Column - Pie Chart */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Time Tracking Overview</CardTitle>
+                <CardDescription>
+                  Hours logged by project
+                </CardDescription>
               </div>
-            ))}
-          </div>
-        </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-          <ChartContainer
-            config={chartConfig}
-            className="aspect-auto h-[250px] w-full"
-          >
-            <BarChart
-              accessibilityLayer
-              data={chartData}
-              margin={{
-                left: 12,
-                right: 12,
-              }}
-            >
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="date"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                minTickGap={32}
-                tickFormatter={(value) => {
-                  const date = new Date(value)
-                  return date.toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  })
-                }}
-              />
-              <ChartTooltip
-                content={
-                  <ChartTooltipContent
-                    className="w-[150px]"
-                    nameKey="hours"
-                    labelFormatter={(value) => {
-                      return new Date(value).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })
+              <div className="text-right">
+                <div className="text-2xl font-bold">{totalHours.toFixed(1)}h</div>
+                <p className="text-xs text-muted-foreground">Total Hours</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="flex items-center justify-center">
+            {pieChartData.length === 0 ? (
+              <div className="text-center py-8">
+                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">No data available</p>
+              </div>
+            ) : (
+              <div className="w-full">
+                <PieChart width={400} height={300}>
+                  <Pie
+                    data={pieChartData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {pieChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value: number) => `${value.toFixed(1)}h`}
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '0.5rem',
+                      color: 'hsl(var(--foreground))'
                     }}
                   />
-                }
-              />
-              {Object.keys(chartConfig).map((key) => (
-                <Bar
-                  key={key}
-                  dataKey={key}
-                  stackId="a"
-                  fill={`var(--color-${key})`}
-                  radius={[0, 0, 4, 4]}
+                </PieChart>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  {pieChartData.map((entry, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <div
+                        className="h-3 w-3 rounded-sm"
+                        style={{ backgroundColor: entry.color }}
+                      />
+                      <span className="text-xs text-muted-foreground">{entry.name}</span>
+                      <span className="text-xs font-medium ml-auto">{entry.value.toFixed(1)}h</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Right Column - Horizontal Bar Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Project Hours</CardTitle>
+            <CardDescription>
+              Hours breakdown by project
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {pieChartData.length === 0 ? (
+              <div className="text-center py-8">
+                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">No data available</p>
+              </div>
+            ) : (
+              <BarChart
+                width={500}
+                height={300}
+                data={pieChartData}
+                layout="vertical"
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" />
+                <YAxis dataKey="name" type="category" width={100} />
+                <Tooltip 
+                  formatter={(value: number) => `${value.toFixed(1)}h`}
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))', 
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '0.5rem',
+                    color: 'hsl(var(--foreground))'
+                  }}
                 />
-              ))}
-            </BarChart>
-          </ChartContainer>
-        </CardContent>
-      </Card>
-
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Hours</CardTitle>
-            <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalHours.toFixed(1)}h</div>
-            <p className="text-xs text-muted-foreground">
-              {formatDateRange(dateRange)}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Time Entries</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalEntries}</div>
-            <p className="text-xs text-muted-foreground">
-              Total logged entries
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Projects</CardTitle>
-            <FolderOpen className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{uniqueProjects}</div>
-            <p className="text-xs text-muted-foreground">
-              Active projects
-            </p>
+                <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                  {pieChartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Reports Content */}
+      {/* Time Entries Table */}
       <Card>
         <CardHeader>
           <CardTitle>Time Entries Report</CardTitle>
           <CardDescription>
-            Detailed breakdown of time entries for the selected period
+            Detailed breakdown of all time entries for the selected period
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -531,34 +497,49 @@ export const Reports: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {filteredEntries.map((entry) => {
-                const project = projects.find(p => p.id === entry.projectId)
-                return (
-                  <div key={entry.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center space-x-4">
-                      <div 
-                        className="w-4 h-4 rounded-full" 
-                        style={{ backgroundColor: project?.color || '#gray' }}
-                      />
-                      <div>
-                        <div className="font-medium">{project?.name || 'Unknown Project'}</div>
-                        <div className="text-sm text-muted-foreground">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-3 px-4 font-medium text-sm">Date</th>
+                    <th className="text-left py-3 px-4 font-medium text-sm">Project</th>
+                    <th className="text-left py-3 px-4 font-medium text-sm">Task</th>
+                    <th className="text-left py-3 px-4 font-medium text-sm">User</th>
+                    <th className="text-right py-3 px-4 font-medium text-sm">Duration</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredEntries.map((entry) => {
+                    const project = projects.find(p => p.id === entry.projectId)
+                    const user = users.find(u => u.id === entry.user_id)
+                    return (
+                      <tr key={entry.id} className="border-b hover:bg-muted/50">
+                        <td className="py-3 px-4 text-sm">
+                          {entry.date ? format(new Date(entry.date), 'MMM d, yyyy') : 'No date'}
+                        </td>
+                        <td className="py-3 px-4 text-sm">
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: project?.color || '#888888' }}
+                            />
+                            {project?.name || 'Unknown Project'}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-sm text-muted-foreground">
                           {entry.task || 'No task description'}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {entry.date ? format(new Date(entry.date), 'MMM d, yyyy') : 'No date'} • 
-                          {entry.startTime ? format(entry.startTime, 'HH:mm') : 'N/A'} - {entry.endTime ? format(entry.endTime, 'HH:mm') : 'In progress'}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-medium">{(entry.duration / 60).toFixed(1)}h</div>
-                      <div className="text-sm text-muted-foreground">{entry.duration}m</div>
-                    </div>
-                  </div>
-                )
-              })}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-muted-foreground">
+                          {user?.full_name || 'Unknown User'}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-right font-medium">
+                          {(entry.duration / 60).toFixed(1)}h
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>
