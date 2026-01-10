@@ -90,11 +90,22 @@ interface KanbanColumnProps {
 }
 
 const KanbanColumn: React.FC<KanbanColumnProps> = ({ column, leads, onLeadClick, onAddClick }) => {
+  // Calculate total ticket value for this column
+  const totalValue = leads.reduce((sum, lead) => sum + (lead.ticket_size || 0), 0)
+  
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('hu-HU', {
+      style: 'currency',
+      currency: 'HUF',
+      maximumFractionDigits: 0,
+    }).format(amount)
+  }
+
   return (
     <div className="flex flex-col bg-muted/30 rounded-lg min-w-[280px] w-[280px] max-h-full">
       {/* Column Header */}
       <div className="p-3 border-b border-border">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <div className={cn("h-3 w-3 rounded-full", column.color)} />
             <h3 className="font-semibold text-sm">{column.title}</h3>
@@ -108,6 +119,9 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ column, leads, onLeadClick,
           >
             <Plus className="h-4 w-4" />
           </Button>
+        </div>
+        <div className="text-xs font-semibold text-foreground/80">
+          {formatCurrency(totalValue)}
         </div>
       </div>
       
@@ -420,10 +434,15 @@ export const Funnel: React.FC = () => {
               <Label htmlFor="ticket_size">Ticket Size (HUF)</Label>
               <Input
                 id="ticket_size"
-                type="number"
+                type="text"
                 placeholder="Expected deal size"
-                value={createForm.ticket_size}
-                onChange={(e) => setCreateForm({ ...createForm, ticket_size: e.target.value })}
+                value={createForm.ticket_size ? new Intl.NumberFormat('hu-HU').format(parseInt(createForm.ticket_size.replace(/\s/g, ''))) : ''}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\s/g, '')
+                  if (value === '' || /^\d+$/.test(value)) {
+                    setCreateForm({ ...createForm, ticket_size: value })
+                  }
+                }}
               />
             </div>
 

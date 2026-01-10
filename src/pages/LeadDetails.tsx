@@ -359,19 +359,17 @@ export const LeadDetails: React.FC = () => {
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Ticket Size (HUF)</Label>
               <Input
-                type="number"
-                value={ticketSize || ''}
+                type="text"
+                value={ticketSize ? new Intl.NumberFormat('hu-HU').format(ticketSize) : ''}
                 onChange={(e) => {
-                  setTicketSize(parseInt(e.target.value) || undefined)
-                  triggerAutosave()
+                  const value = e.target.value.replace(/\s/g, '')
+                  if (value === '' || /^\d+$/.test(value)) {
+                    setTicketSize(value ? parseInt(value) : undefined)
+                    triggerAutosave()
+                  }
                 }}
                 placeholder="Expected deal size"
               />
-              {ticketSize && (
-                <p className="text-xs text-muted-foreground">
-                  {formatCurrency(ticketSize)}
-                </p>
-              )}
             </div>
 
             {/* Website */}
