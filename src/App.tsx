@@ -120,7 +120,21 @@ function App() {
                 } />
         </Routes>
       </Layout>
-      <Toaster position="bottom-right" />
+      <Toaster 
+        position="bottom-right" 
+        theme="system"
+        richColors
+        toastOptions={{
+          classNames: {
+            toast: 'bg-card border-border text-foreground',
+            title: 'text-foreground',
+            description: 'text-muted-foreground',
+            actionButton: 'bg-primary text-primary-foreground',
+            cancelButton: 'bg-muted text-muted-foreground',
+            closeButton: 'bg-card border-border text-foreground hover:bg-muted',
+          },
+        }}
+      />
     </Router>
   )
 }

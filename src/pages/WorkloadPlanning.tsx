@@ -593,6 +593,9 @@ export const ForecastPlanning: React.FC = () => {
     const totalDays = allDays.length
     
     return entries.map(entry => {
+      // Skip entries without required dates
+      if (!entry.start_time || !entry.end_time) return null
+      
       const startDate = entry.start_time.split('T')[0]
       const endDate = entry.end_time.split('T')[0]
       

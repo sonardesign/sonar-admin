@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from '../components/ui/label'
 import { Input } from '../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { Kanban, List, Clock, User, Plus } from 'lucide-react'
+import { Kanban, List, Clock, User, Plus, Search, ExternalLink } from 'lucide-react'
 import { ScrollArea } from '../components/ui/scroll-area'
 import { useSupabaseAppState } from '../hooks/useSupabaseAppState'
 import { supabase } from '../lib/supabase'
@@ -194,6 +194,7 @@ export const Tasks: React.FC = () => {
   const { projects, users } = useSupabaseAppState()
   const [taskEntries, setTaskEntries] = useState<TimeEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Create task modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -419,8 +420,16 @@ export const Tasks: React.FC = () => {
       filtered = filtered.filter(entry => entry.user_id === selectedUserId)
     }
     
+    // Filter by search query
+    if (searchQuery) {
+      filtered = filtered.filter(entry => 
+        entry.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        entry.task_number?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    }
+    
     return filtered
-  }, [taskEntries, selectedProjectId, selectedUserId])
+  }, [taskEntries, selectedProjectId, selectedUserId, searchQuery])
 
   // Group entries by status (maintain order for reordering)
   const entriesByStatus = COLUMNS.reduce((acc, column) => {
@@ -454,7 +463,7 @@ export const Tasks: React.FC = () => {
       const durationMinutes = isNaN(hours) || hours <= 0 ? 60 : Math.round(hours * 60)
       const now = new Date().toISOString()
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('time_entries')
         .insert({
           description: createForm.title || 'New Task',
@@ -468,12 +477,38 @@ export const Tasks: React.FC = () => {
           // Setting end_time = start_time would result in 0 duration which violates the constraint
           is_billable: true
         })
+        .select()
+        .single()
 
       if (error) {
         console.error('Error creating task:', error)
         toast.error('Failed to create task')
-      } else {
-        toast.success('Task created')
+      } else if (data) {
+        const taskNumber = data.task_number || data.id
+        const taskSlug = slugify(data.description || 'untitled')
+        const taskUrl = `/tasks/${taskNumber}/${taskSlug}`
+        
+        // Show custom toast with link
+        toast.success(
+          <div className="flex flex-col gap-1.5">
+            <div className="font-semibold">Task created</div>
+            <div className="text-sm text-muted-foreground">{data.description || 'Untitled Task'}</div>
+            <button
+              onClick={() => {
+                navigate(taskUrl)
+                toast.dismiss()
+              }}
+              className="text-[14px] text-primary hover:text-primary/80 underline text-left w-fit mt-0.5 transition-colors"
+            >
+              Open Task
+            </button>
+          </div>,
+          {
+            duration: Infinity, // Won't auto-dismiss
+            closeButton: true, // Can be closed manually
+          }
+        )
+        
         setIsCreateModalOpen(false)
         await loadTaskEntries()
       }
@@ -547,6 +582,18 @@ export const Tasks: React.FC = () => {
               </TabsList>
             </Tabs>
 
+            {/* Search Field */}
+            <div className="relative w-[250px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search tasks..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
             {/* Project Filter */}
             <SimpleCombobox
               options={projectOptions}
@@ -571,7 +618,7 @@ export const Tasks: React.FC = () => {
           </div>
 
           <div className="text-sm text-muted-foreground">
-            {filteredEntries.length} {(selectedProjectId !== 'all' || selectedUserId !== 'all') ? 'filtered' : 'total'} tasks
+            {filteredEntries.length} {(selectedProjectId !== 'all' || selectedUserId !== 'all' || searchQuery) ? 'filtered' : 'total'} tasks
           </div>
         </div>
 

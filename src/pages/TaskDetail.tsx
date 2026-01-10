@@ -17,7 +17,7 @@ import { Textarea } from '../components/ui/textarea'
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover'
 import { Calendar } from '../components/ui/calendar'
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog'
 import { format } from 'date-fns'
 import { 
   ArrowLeft, 
@@ -312,6 +312,7 @@ export const TaskDetail: React.FC = () => {
   const [taskId, setTaskId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   
   // Form state
   const [title, setTitle] = useState('')
@@ -741,6 +742,29 @@ export const TaskDetail: React.FC = () => {
     saveTask({ entry_type: newType })
   }
 
+  // Delete task
+  const handleDeleteTask = async () => {
+    if (!taskId) return
+
+    try {
+      const { error } = await supabase
+        .from('time_entries')
+        .delete()
+        .eq('id', taskId)
+
+      if (error) {
+        console.error('Error deleting task:', error)
+        toast.error('Failed to delete task')
+      } else {
+        toast.success('Task deleted successfully')
+        navigate('/tasks')
+      }
+    } catch (error) {
+      console.error('Error deleting task:', error)
+      toast.error('Failed to delete task')
+    }
+  }
+
   // Navigation functions
   const handlePrevTask = () => {
     if (currentTaskIndex > 0 && allTaskNumbers.length > 0) {
@@ -1086,6 +1110,16 @@ export const TaskDetail: React.FC = () => {
         {/* Right Side - Sidebar */}
         <div className="w-[300px] flex-shrink-0 h-full">
           <div className="space-y-4 p-6">
+              {/* Delete Task Button */}
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Task
+              </Button>
+
               {/* Assignee */}
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Assignee</Label>
@@ -1324,6 +1358,26 @@ export const TaskDetail: React.FC = () => {
               Close
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Task</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this task? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteTask}>
+              Delete
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </Page>
