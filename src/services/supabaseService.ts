@@ -96,7 +96,8 @@ export const projectService = {
           *,
           clients!projects_client_id_fkey (
             id,
-            name
+            name,
+            client_code
           )
         `)
         .order('created_at', { ascending: false })
@@ -107,6 +108,8 @@ export const projectService = {
       const transformedData = data?.map((project: any) => ({
         ...project,
         client_name: project.clients?.name,
+        client_code: project.clients?.client_code,
+        project_code: project.project_code, // From migration 023
         clientId: project.client_id,
         clientName: project.clients?.name,
         archived: project.is_archived,

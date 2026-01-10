@@ -56,7 +56,7 @@ export const useSupabaseAppState = () => {
         // Load clients first
         const { data: clientsForProjects, error: clientsForProjectsError } = await supabase
           .from('clients')
-          .select('*')
+          .select('id, name, is_active, created_at, updated_at, client_code')
           .order('name')
 
         if (clientsForProjectsError) {
@@ -66,7 +66,7 @@ export const useSupabaseAppState = () => {
         // Load projects without JOIN
         const { data: rawProjectsData, error: rawProjectsError } = await supabase
           .from('projects')
-          .select('*')
+          .select('id, name, client_id, color, status, is_archived, description, created_by, created_at, updated_at, project_code')
           .order('created_at', { ascending: false })
 
         if (rawProjectsError) {
@@ -80,6 +80,7 @@ export const useSupabaseAppState = () => {
             // Find the client for this project
             const client = clientsForProjects?.find(c => c.id === project.client_id)
             const clientName = client?.name || 'No Client'
+            const clientCode = (client as any)?.client_code
 
             return {
               id: project.id,
@@ -88,6 +89,8 @@ export const useSupabaseAppState = () => {
               color: project.color || '#3b82f6',
               client_id: project.client_id,
               client_name: clientName,
+              client_code: clientCode,
+              project_code: project.project_code, // Optional: only exists after migration
               status: project.status || 'active',
               is_archived: project.is_archived || false,
               created_by: project.created_by,

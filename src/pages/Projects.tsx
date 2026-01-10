@@ -183,6 +183,32 @@ export const Projects: React.FC = () => {
         enableSorting: false,
         enableHiding: false,
       },
+      // ID column
+      {
+        accessorKey: 'project_code',
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+              className="h-8 px-2"
+            >
+              ID
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          );
+        },
+        cell: ({ row }) => {
+          const project = row.original;
+          return (
+            <div className="font-mono text-sm">
+              {project.project_code || (
+                <span className="text-muted-foreground">-</span>
+              )}
+            </div>
+          );
+        },
+      },
       // Status column
       {
         accessorKey: 'status',
@@ -257,7 +283,18 @@ export const Projects: React.FC = () => {
           );
         },
         cell: ({ row }) => {
-          return <div>{row.getValue('client_name') || 'No Client'}</div>;
+          const project = row.original as Project & { client_code?: string };
+          const clientName = row.getValue('client_name') || 'No Client';
+          return (
+            <div className="flex items-center gap-2">
+              {project.client_code && (
+                <span className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                  {project.client_code}
+                </span>
+              )}
+              <span>{clientName}</span>
+            </div>
+          );
         },
         filterFn: (row, id, value) => {
           return value.includes(row.getValue(id));

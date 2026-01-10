@@ -47,7 +47,7 @@ export const useProjectsData = () => {
       console.log('📋 Loading clients...')
       const clientsQuery = supabase
         .from('clients')
-        .select('*')
+        .select('id, name, is_active, created_at, updated_at, client_code')
         // Remove is_active filter to see ALL clients including duplicates
         .order('name', { ascending: true })
         .order('created_at', { ascending: true })
@@ -83,7 +83,7 @@ export const useProjectsData = () => {
       
       const { data: projectsData, error: projectsError } = await supabase
         .from('projects')
-        .select('id, name, client_id, color, status, is_archived, description, created_by, created_at, updated_at')
+        .select('id, name, client_id, color, status, is_archived, description, created_by, created_at, updated_at, project_code')
         .order('created_at', { ascending: false })
       
       console.log('📁 Raw projects response:', { data: projectsData, error: projectsError })
@@ -104,10 +104,11 @@ export const useProjectsData = () => {
         console.log('✅ Projects data:', projectsData)
         
         // Transform the data and match with clients
-        const transformedProjects: Project[] = (projectsData || []).map((project: any) => {
+        const transformedProjects = (projectsData || []).map((project: any) => {
           // Find the client for this project
           const client = clientsData?.find(c => c.id === project.client_id)
           const clientName = client?.name || 'No Client'
+          const clientCode = (client as any)?.client_code
           
           return {
             id: project.id,
@@ -116,6 +117,8 @@ export const useProjectsData = () => {
             color: project.color || '#3b82f6',
             client_id: project.client_id,
             client_name: clientName,
+            client_code: clientCode,
+            project_code: project.project_code, // From migration 023
             status: project.status || 'active',
             is_archived: project.is_archived || false,
             created_by: project.created_by,

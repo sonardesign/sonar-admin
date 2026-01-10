@@ -16,6 +16,7 @@ export interface Profile {
 export interface Client {
   id: string;
   name: string;
+  client_code?: string;
   email?: string;
   phone?: string;
   address?: string;
@@ -32,6 +33,7 @@ export interface Project {
   id: string;
   client_id: string;
   name: string;
+  project_code?: string;
   description?: string;
   color: string;
   hourly_rate?: number;
