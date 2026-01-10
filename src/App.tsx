@@ -51,10 +51,10 @@ function App() {
   return (
     <Router>
       <SidebarProvider defaultOpen={true}>
-        <AppSidebar />
-        <SidebarInset>
-          <div className="flex flex-col h-screen">
-            <div className="flex-1 overflow-auto">
+        <div className="flex h-screen w-full overflow-hidden">
+          <AppSidebar />
+          <SidebarInset className="flex-1 overflow-hidden">
+            <div className="h-full overflow-auto">
               <Layout>
                 <Routes>
                 <Route path="/" element={
@@ -140,8 +140,8 @@ function App() {
                 </Routes>
               </Layout>
             </div>
-          </div>
-        </SidebarInset>
+          </SidebarInset>
+        </div>
         <Toaster 
         position="bottom-right" 
         theme="system"

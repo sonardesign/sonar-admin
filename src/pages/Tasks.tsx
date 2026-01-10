@@ -627,7 +627,7 @@ export const Tasks: React.FC = () => {
           <DragDropContext onDragEnd={handleDragEnd}>
             <Card>
               <CardContent className="p-4">
-                <div className="flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-120px)]">
+                <div className="flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-150px)]">
                   {COLUMNS.map((column) => (
                     <KanbanColumn
                       key={column.id}

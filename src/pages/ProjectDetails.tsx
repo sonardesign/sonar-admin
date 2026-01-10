@@ -1,23 +1,28 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../components/ui/dialog'
 import { Badge } from '../components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs'
-import { ArrowLeft, Plus, Clock, DollarSign, Receipt, Calculator, Edit2, Users, Trash2, BarChart3, ListTodo, Wallet, Settings, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Plus, Clock, DollarSign, Receipt, Calculator, Edit2, Users, Trash2, BarChart3, ListTodo, Wallet, Settings, ChevronLeft, ChevronRight, Search, User } from 'lucide-react'
+import { ScrollArea } from '../components/ui/scroll-area'
+import { SimpleCombobox } from '../components/ui/simple-combobox'
 import { useSupabaseAppState } from '../hooks/useSupabaseAppState'
 import { useProjectsData } from '../hooks/useProjectsData'
 import { usePermissions } from '../hooks/usePermissions'
 import { InviteMembersModal } from '../components/InviteMembersModal'
 import { projectMembersService } from '../services/supabaseService'
-import { Project, TimeEntry } from '../types'
+import { supabase } from '../lib/supabase'
+import { Project, TimeEntry, TaskStatus } from '../types'
 import { Page } from '../components/Page'
 import { notifications } from '../lib/notifications'
+import { toast } from 'sonner'
 import { cn } from '../lib/utils'
 
 interface MaterialCost {
@@ -43,6 +48,150 @@ interface EditRateData {
   costPerHour: number
   pricePerHour: number
   currency: 'HUF' | 'USD' | 'EUR'
+}
+
+// Kanban column definitions
+const COLUMNS: { id: TaskStatus; title: string; color: string }[] = [
+  { id: 'backlog', title: 'Backlog', color: 'bg-slate-500' },
+  { id: 'todo', title: 'To Do', color: 'bg-blue-500' },
+  { id: 'in_progress', title: 'In Progress', color: 'bg-yellow-500' },
+  { id: 'blocked', title: 'Blocked', color: 'bg-red-500' },
+  { id: 'done', title: 'Done', color: 'bg-green-500' },
+]
+
+// Task Card Component (Draggable) - Project-specific version
+interface TaskCardProps {
+  entry: TimeEntry
+  index: number
+  user?: { full_name: string }
+  onClick?: () => void
+}
+
+const TaskCard: React.FC<TaskCardProps> = ({ entry, index, user, onClick }) => {
+  const hours = entry.duration_minutes ? Math.round(entry.duration_minutes / 60 * 10) / 10 : 0
+
+  return (
+    <div
+      onClick={onClick}
+      className="bg-card border border-border rounded-lg p-3 cursor-pointer shadow-sm hover:shadow-md transition-shadow"
+    >
+      {/* Task Number */}
+      {entry.task_number && (
+        <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded inline-block mb-1.5">
+          {entry.task_number}
+        </span>
+      )}
+      
+      {/* Task Title */}
+      <p className="text-sm font-medium text-foreground line-clamp-2">
+        {entry.description || 'Untitled Task'}
+      </p>
+      
+      {/* Meta info - full width */}
+      <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50 text-xs text-muted-foreground">
+        {/* Hours */}
+        <div className="flex items-center gap-1">
+          <Clock className="h-3 w-3" />
+          <span>{hours}h</span>
+        </div>
+        
+        {/* User */}
+        {user && (
+          <div className="flex items-center gap-1">
+            <User className="h-3 w-3" />
+            <span className="truncate max-w-[100px]">{user.full_name}</span>
+          </div>
+        )}
+        
+        {/* Entry type badge */}
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+          {entry.entry_type === 'planned' ? 'Planned' : 'Reported'}
+        </Badge>
+      </div>
+    </div>
+  )
+}
+
+// Kanban Column Component (Drop Zone)
+interface KanbanColumnProps {
+  column: { id: TaskStatus; title: string; color: string }
+  entries: TimeEntry[]
+  users: any[]
+  onTaskClick: (entry: TimeEntry) => void
+  onAddClick: (status: TaskStatus) => void
+}
+
+const KanbanColumn: React.FC<KanbanColumnProps> = ({ column, entries, users, onTaskClick, onAddClick }) => {
+  const getUser = (userId: string) => users.find(u => u.id === userId)
+
+  return (
+    <div className="flex flex-col bg-muted/30 rounded-lg min-w-[380px] w-[380px] max-h-full">
+      {/* Column Header */}
+      <div className="p-3 border-b border-border">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className={cn("h-3 w-3 rounded-full", column.color)} />
+            <h3 className="font-semibold text-sm">{column.title}</h3>
+            <span className="text-xs text-muted-foreground">({entries.length})</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            onClick={() => onAddClick(column.id)}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      
+      {/* Column Content */}
+      <Droppable droppableId={column.id}>
+        {(provided, snapshot) => (
+          <ScrollArea className="flex-1">
+            <div
+              ref={provided.innerRef}
+              {...provided.droppableProps}
+              className={cn(
+                "p-2 min-h-[100px]",
+                snapshot.isDraggingOver && "bg-primary/5"
+              )}
+            >
+              {entries.length === 0 ? (
+                <div className="flex items-center justify-center h-24 text-muted-foreground text-sm">
+                  No tasks
+                </div>
+              ) : (
+                entries.map((entry, index) => (
+                  <Draggable key={entry.id} draggableId={entry.id} index={index}>
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        {...provided.dragHandleProps}
+                        className={cn(
+                          "mb-2",
+                          snapshot.isDragging && "opacity-50"
+                        )}
+                      >
+                        <TaskCard
+                          entry={entry}
+                          index={index}
+                          user={getUser(entry.user_id)}
+                          onClick={() => onTaskClick(entry)}
+                        />
+                      </div>
+                    )}
+                  </Draggable>
+                ))
+              )}
+              {provided.placeholder}
+            </div>
+          </ScrollArea>
+        )}
+      </Droppable>
+    </div>
+  )
 }
 
 export const ProjectDetails: React.FC = () => {
@@ -76,6 +225,22 @@ export const ProjectDetails: React.FC = () => {
   // Workload view state
   const [workloadView, setWorkloadView] = useState<'weekly' | 'monthly'>('monthly')
   const [workloadOffset, setWorkloadOffset] = useState(0) // 0 = current period, -1 = previous, 1 = next
+  
+  // Tasks view state
+  const [taskEntries, setTaskEntries] = useState<TimeEntry[]>([])
+  const [loadingTasks, setLoadingTasks] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedUserId, setSelectedUserId] = useState<string>('all')
+  
+  // Create task modal state
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [createForm, setCreateForm] = useState({
+    title: '',
+    status: 'backlog' as TaskStatus,
+    userId: '',
+    entryType: 'planned' as 'planned' | 'reported',
+    hours: '1'
+  })
   
   const { isAdmin } = usePermissions()
 
@@ -377,6 +542,237 @@ export const ProjectDetails: React.FC = () => {
   const formatHours = (hours: number) => {
     return `${hours.toFixed(1)}h`
   }
+
+  // Load tasks when project changes
+  useEffect(() => {
+    if (project?.id && activeTab === 'tasks') {
+      loadTaskEntries()
+    }
+  }, [project?.id, activeTab])
+
+  const loadTaskEntries = async () => {
+    if (!project?.id) return
+    
+    setLoadingTasks(true)
+    try {
+      const { data, error } = await supabase
+        .from('time_entries')
+        .select('*')
+        .eq('project_id', project.id)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error loading task entries:', error)
+        toast.error('Failed to load tasks')
+      } else {
+        // Set all entries without task_status to 'backlog'
+        const entriesWithStatus = (data || []).map(entry => ({
+          ...entry,
+          task_status: entry.task_status || 'backlog'
+        }))
+        setTaskEntries(entriesWithStatus)
+      }
+    } catch (error) {
+      console.error('Error loading task entries:', error)
+    } finally {
+      setLoadingTasks(false)
+    }
+  }
+
+  // Handle drag end - move cards between columns or reorder within column
+  const handleDragEnd = async (result: DropResult) => {
+    const { destination, source, draggableId } = result
+
+    // If dropped outside a droppable area, do nothing
+    if (!destination) {
+      return
+    }
+
+    // If dropped in the same position, do nothing
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) {
+      return
+    }
+
+    const draggedEntry = taskEntries.find(e => e.id === draggableId)
+    if (!draggedEntry) return
+
+    const newStatus = destination.droppableId as TaskStatus
+    const isSameColumn = draggedEntry.task_status === newStatus
+
+    // If reordering within the same column
+    if (isSameColumn) {
+      // Get all entries in the same column
+      const columnEntries = taskEntries.filter(e => e.task_status === newStatus)
+      const reorderedEntries = Array.from(columnEntries)
+      const [removed] = reorderedEntries.splice(source.index, 1)
+      reorderedEntries.splice(destination.index, 0, removed)
+
+      // Update state: rebuild array with reordered entries
+      setTaskEntries(prev => {
+        const otherEntries = prev.filter(e => e.task_status !== newStatus)
+        return [...otherEntries, ...reorderedEntries]
+      })
+      
+      return
+    }
+
+    // Moving to a different column
+    // Optimistic update
+    setTaskEntries(prev => prev.map(entry => 
+      entry.id === draggableId ? { ...entry, task_status: newStatus } : entry
+    ))
+
+    try {
+      const { error } = await supabase
+        .from('time_entries')
+        .update({ task_status: newStatus })
+        .eq('id', draggableId)
+
+      if (error) {
+        console.error('Error updating task status:', error)
+        toast.error('Failed to update task status')
+        // Revert on error
+        loadTaskEntries()
+      } else {
+        toast.success(`Task moved to ${COLUMNS.find(c => c.id === newStatus)?.title}`)
+      }
+    } catch (error) {
+      console.error('Error updating task status:', error)
+      loadTaskEntries()
+    }
+  }
+
+  // User options for filter
+  const userOptions = useMemo(() => {
+    return [
+      { value: 'all', label: 'All Users' },
+      ...users.map(u => ({
+        value: u.id,
+        label: u.full_name || u.email
+      }))
+    ]
+  }, [users])
+
+  // Filter entries by selected user and search query
+  const filteredTaskEntries = useMemo(() => {
+    let filtered = taskEntries
+    
+    if (selectedUserId !== 'all') {
+      filtered = filtered.filter(entry => entry.user_id === selectedUserId)
+    }
+    
+    // Filter by search query
+    if (searchQuery) {
+      filtered = filtered.filter(entry => 
+        entry.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        entry.task_number?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    }
+    
+    return filtered
+  }, [taskEntries, selectedUserId, searchQuery])
+
+  // Group entries by status
+  const entriesByStatus = COLUMNS.reduce((acc, column) => {
+    acc[column.id] = filteredTaskEntries.filter(entry => entry.task_status === column.id)
+    return acc
+  }, {} as Record<TaskStatus, TimeEntry[]>)
+
+  // Handle clicking the add button on a column
+  const handleAddClick = useCallback((status: TaskStatus) => {
+    setCreateForm({
+      title: '',
+      status: status,
+      userId: users[0]?.id || '',
+      entryType: 'planned',
+      hours: '1'
+    })
+    setIsCreateModalOpen(true)
+  }, [users])
+
+  // Handle creating a new task
+  const handleCreateTask = async () => {
+    if (!project?.id || !createForm.userId) {
+      toast.error('Please select an assignee')
+      return
+    }
+
+    try {
+      const hours = parseFloat(createForm.hours)
+      const durationMinutes = isNaN(hours) || hours <= 0 ? 60 : Math.round(hours * 60)
+      const now = new Date().toISOString()
+
+      const { data, error } = await supabase
+        .from('time_entries')
+        .insert({
+          description: createForm.title || 'New Task',
+          task_status: createForm.status,
+          user_id: createForm.userId,
+          project_id: project.id,
+          entry_type: createForm.entryType,
+          duration_minutes: durationMinutes > 0 ? durationMinutes : 60,
+          start_time: now,
+          is_billable: true
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error creating task:', error)
+        toast.error('Failed to create task')
+      } else if (data) {
+        const taskNumber = data.task_number || data.id
+        const taskSlug = slugify(data.description || 'untitled')
+        const taskUrl = `/tasks/${taskNumber}/${taskSlug}`
+        
+        // Show custom toast with link
+        toast.success(
+          <div className="flex flex-col gap-1.5">
+            <div className="font-semibold">Task created</div>
+            <div className="text-sm text-muted-foreground">{data.description || 'Untitled Task'}</div>
+            <button
+              onClick={() => {
+                navigate(taskUrl)
+                toast.dismiss()
+              }}
+              className="text-[14px] text-primary hover:text-primary/80 underline text-left w-fit mt-0.5 transition-colors"
+            >
+              Open Task
+            </button>
+          </div>,
+          {
+            duration: Infinity,
+            closeButton: true,
+          }
+        )
+        
+        setIsCreateModalOpen(false)
+        await loadTaskEntries()
+      }
+    } catch (error) {
+      console.error('Error creating task:', error)
+      toast.error('Failed to create task')
+    }
+  }
+
+  // Create URL-friendly slug from task title
+  const slugify = (text: string) => {
+    return text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .substring(0, 50) || 'untitled'
+  }
+
+  // Handle clicking on a task - navigate to detail page
+  const handleTaskClick = useCallback((entry: TimeEntry) => {
+    const taskNumber = entry.task_number || entry.id
+    const taskSlug = slugify(entry.description || 'untitled')
+    navigate(`/tasks/${taskNumber}/${taskSlug}`)
+  }, [navigate])
 
   if (appLoading || projectsLoading) {
     return (
@@ -859,8 +1255,67 @@ export const ProjectDetails: React.FC = () => {
 
         {/* Tasks Tab */}
         <TabsContent value="tasks">
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">Tasks view coming soon...</p>
+          <div className="space-y-4">
+            {/* Filters */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                {/* Search Field */}
+                <div className="relative w-[250px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Search tasks..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+
+                {/* User Filter */}
+                <SimpleCombobox
+                  options={userOptions}
+                  value={selectedUserId}
+                  onValueChange={setSelectedUserId}
+                  placeholder="Filter by user..."
+                  searchPlaceholder="Search users..."
+                  emptyText="No users found."
+                  className="w-[200px]"
+                />
+              </div>
+
+              <div className="text-sm text-muted-foreground">
+                {filteredTaskEntries.length} {(selectedUserId !== 'all' || searchQuery) ? 'filtered' : 'total'} tasks
+              </div>
+            </div>
+
+            {/* Kanban View */}
+            {loadingTasks ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Loading tasks...</p>
+                </div>
+              </div>
+            ) : (
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-150px)]">
+                      {COLUMNS.map((column) => (
+                        <KanbanColumn
+                          key={column.id}
+                          column={column}
+                          entries={entriesByStatus[column.id] || []}
+                          users={users}
+                          onTaskClick={handleTaskClick}
+                          onAddClick={handleAddClick}
+                        />
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </DragDropContext>
+            )}
           </div>
         </TabsContent>
 
@@ -1463,6 +1918,118 @@ export const ProjectDetails: React.FC = () => {
           onMemberAdded={loadProjectMembers}
         />
       )}
+
+      {/* Create Task Modal */}
+      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Create Task</DialogTitle>
+            <DialogDescription>
+              Add a new task to {project?.name}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Title */}
+            <div className="space-y-2">
+              <Label htmlFor="createTaskTitle">Title</Label>
+              <Input
+                id="createTaskTitle"
+                placeholder="Enter task title..."
+                value={createForm.title}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, title: e.target.value }))}
+              />
+            </div>
+
+            {/* Status */}
+            <div className="space-y-2">
+              <Label htmlFor="createTaskStatus">Status</Label>
+              <Select
+                value={createForm.status}
+                onValueChange={(value: TaskStatus) => setCreateForm(prev => ({ ...prev, status: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {COLUMNS.map((col) => (
+                    <SelectItem key={col.id} value={col.id}>
+                      <div className="flex items-center gap-2">
+                        <div className={cn("h-2 w-2 rounded-full", col.color)} />
+                        {col.title}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Assignee */}
+            <div className="space-y-2">
+              <Label htmlFor="createTaskAssignee">Assignee</Label>
+              <Select
+                value={createForm.userId}
+                onValueChange={(value) => setCreateForm(prev => ({ ...prev, userId: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select assignee..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Entry Type */}
+            <div className="space-y-2">
+              <Label htmlFor="createTaskEntryType">Type</Label>
+              <Select
+                value={createForm.entryType}
+                onValueChange={(value: 'planned' | 'reported') => setCreateForm(prev => ({ ...prev, entryType: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="planned">Planned</SelectItem>
+                  <SelectItem value="reported">Reported</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Hours */}
+            <div className="space-y-2">
+              <Label htmlFor="createTaskHours">Hours</Label>
+              <Input
+                id="createTaskHours"
+                type="number"
+                min="0"
+                step="0.5"
+                placeholder="Enter hours..."
+                value={createForm.hours}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, hours: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsCreateModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleCreateTask}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Task
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Page>
   )
 }

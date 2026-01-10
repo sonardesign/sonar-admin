@@ -14,7 +14,7 @@ interface PageProps {
 export const Page: React.FC<PageProps> = ({ children, className, loading, loadingText }) => {
   if (loading) {
     return (
-      <div className={cn('p-6 h-full flex flex-col items-center justify-center', className)}>
+      <div className={cn('p-6 h-screen flex flex-col items-center justify-center', className)}>
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <p className="mt-4 text-muted-foreground">{loadingText || 'Loading...'}</p>
       </div>
@@ -22,7 +22,7 @@ export const Page: React.FC<PageProps> = ({ children, className, loading, loadin
   }
 
   return (
-    <div className={cn('p-6 h-full flex flex-col', className)}>
+    <div className={cn('p-6', className)}>
       {children}
     </div>
   )
