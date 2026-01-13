@@ -785,6 +785,24 @@ export const Timetable: React.FC = () => {
           </Card>
         </div>
 
+        {/* Custom Calendar Styles */}
+        <style>{`
+          /* Set hour row height to 60px */
+          .rbc-timeslot-group {
+            min-height: 60px !important;
+          }
+          
+          /* Hide inner quarter-hour lines but keep snapping */
+          .rbc-time-slot {
+            border-top: none !important;
+          }
+          
+          /* Keep the hour lines visible */
+          .rbc-timeslot-group {
+            border-bottom: 1px solid hsl(var(--border)) !important;
+          }
+        `}</style>
+
         {/* Create Time Entry Modal */}
         <Dialog open={isTimeSlotModalOpen} onOpenChange={setIsTimeSlotModalOpen}>
           <DialogContent>

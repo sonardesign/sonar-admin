@@ -289,6 +289,32 @@ const TipTapEditor: React.FC<TipTapEditorProps> = ({ value, onChange, placeholde
           height: 1rem;
           cursor: pointer;
           accent-color: hsl(var(--primary));
+          appearance: none;
+          -webkit-appearance: none;
+          -moz-appearance: none;
+          border: 2px solid hsl(var(--border));
+          border-radius: 0.25rem;
+          background-color: hsl(var(--background));
+          position: relative;
+          transition: all 0.15s ease;
+        }
+        .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"]:hover {
+          border-color: hsl(var(--primary));
+        }
+        .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"]:checked {
+          background-color: hsl(var(--primary));
+          border-color: hsl(var(--primary));
+        }
+        .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"]:checked::after {
+          content: '';
+          position: absolute;
+          left: 0.25rem;
+          top: 0.05rem;
+          width: 0.3rem;
+          height: 0.5rem;
+          border: solid white;
+          border-width: 0 2px 2px 0;
+          transform: rotate(45deg);
         }
         .ProseMirror ul[data-type="taskList"] li > div {
           flex: 1;
@@ -1109,7 +1135,7 @@ export const TaskDetail: React.FC = () => {
 
         {/* Right Side - Sidebar */}
         <div className="w-[300px] flex-shrink-0 h-full">
-          <div className="space-y-4 p-6">
+          <div className="space-y-4 p-6 h-full">
               {/* Delete Task Button */}
               <Button
                 variant="destructive"

@@ -1,17 +1,41 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import Placeholder from '@tiptap/extension-placeholder'
+import UnderlineExtension from '@tiptap/extension-underline'
+import TaskList from '@tiptap/extension-task-list'
+import TaskItem from '@tiptap/extension-task-item'
 import { Page } from '../components/Page'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
-import { Textarea } from '../components/ui/textarea'
 import { Badge } from '../components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { ArrowLeft, ExternalLink, Trash2, Phone, Globe, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { 
+  ArrowLeft, 
+  ExternalLink, 
+  Trash2, 
+  Phone, 
+  Globe, 
+  X, 
+  ChevronLeft, 
+  ChevronRight,
+  Bold,
+  Italic,
+  Underline,
+  List,
+  ListOrdered,
+  ListTodo,
+  Heading1,
+  Heading2,
+  Heading3
+} from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { toast } from 'sonner'
 import { Lead, LeadStatus, Contact } from '../types'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog'
+import { cn } from '../lib/utils'
 
 const STATUS_OPTIONS: { value: LeadStatus; label: string; color: string }[] = [
   { value: 'contacted', label: 'Contacted', color: 'bg-slate-500' },
@@ -21,6 +45,269 @@ const STATUS_OPTIONS: { value: LeadStatus; label: string; color: string }[] = [
   { value: 'contract', label: 'Contract', color: 'bg-green-500' },
   { value: 'lost', label: 'Lost', color: 'bg-red-500' },
 ]
+
+// TipTap Rich Text Editor Component with floating toolbar
+interface TipTapEditorProps {
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+}
+
+const TipTapEditor: React.FC<TipTapEditorProps> = ({ value, onChange, placeholder }) => {
+  const [showToolbar, setShowToolbar] = useState(false)
+  const [toolbarPosition, setToolbarPosition] = useState({ top: 0, left: 0 })
+  const containerRef = React.useRef<HTMLDivElement>(null)
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: {
+          levels: [1, 2, 3],
+        },
+      }),
+      UnderlineExtension,
+      TaskList,
+      TaskItem.configure({
+        nested: true,
+      }),
+      Placeholder.configure({
+        placeholder: placeholder || 'Start typing...',
+      }),
+    ],
+    content: value,
+    onUpdate: ({ editor }) => {
+      onChange(editor.getHTML())
+    },
+    onSelectionUpdate: ({ editor }) => {
+      const { from, to } = editor.state.selection
+      const hasSelection = from !== to
+      
+      if (hasSelection && containerRef.current) {
+        const { view } = editor
+        const start = view.coordsAtPos(from)
+        const end = view.coordsAtPos(to)
+        const containerRect = containerRef.current.getBoundingClientRect()
+        
+        setToolbarPosition({
+          top: start.top - containerRect.top - 45,
+          left: ((start.left + end.left) / 2) - containerRect.left - 120
+        })
+        setShowToolbar(true)
+      } else {
+        setShowToolbar(false)
+      }
+    },
+    onBlur: () => {
+      // Delay to allow toolbar button clicks
+      setTimeout(() => setShowToolbar(false), 150)
+    },
+    editorProps: {
+      attributes: {
+        class: 'min-h-[150px] focus:outline-none prose prose-sm dark:prose-invert max-w-none text-foreground',
+      },
+    },
+  })
+
+
+  // Update content when value changes externally
+  useEffect(() => {
+    if (editor && value !== editor.getHTML()) {
+      editor.commands.setContent(value)
+    }
+  }, [value, editor])
+
+  if (!editor) {
+    return null
+  }
+
+  return (
+    <div className="relative" ref={containerRef}>
+      {/* Floating Toolbar - appears on text selection */}
+      {showToolbar && (
+        <div
+          className="absolute z-50 flex items-center gap-0.5 p-1 bg-popover border border-border rounded-lg shadow-lg"
+          style={{
+            top: toolbarPosition.top,
+            left: Math.max(0, toolbarPosition.left),
+          }}
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn("h-7 w-7 p-0", editor.isActive('heading', { level: 1 }) && "bg-muted")}
+            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+            title="Heading 1 (type # + space)"
+          >
+            <Heading1 className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn("h-7 w-7 p-0", editor.isActive('heading', { level: 2 }) && "bg-muted")}
+            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+            title="Heading 2 (type ## + space)"
+          >
+            <Heading2 className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn("h-7 w-7 p-0", editor.isActive('heading', { level: 3 }) && "bg-muted")}
+            onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+            title="Heading 3 (type ### + space)"
+          >
+            <Heading3 className="h-3.5 w-3.5" />
+          </Button>
+          <div className="w-px h-5 bg-border mx-0.5" />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn("h-7 w-7 p-0", editor.isActive('bold') && "bg-muted")}
+            onClick={() => editor.chain().focus().toggleBold().run()}
+            title="Bold"
+          >
+            <Bold className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn("h-7 w-7 p-0", editor.isActive('italic') && "bg-muted")}
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+            title="Italic"
+          >
+            <Italic className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn("h-7 w-7 p-0", editor.isActive('underline') && "bg-muted")}
+            onClick={() => editor.chain().focus().toggleUnderline().run()}
+            title="Underline"
+          >
+            <Underline className="h-3.5 w-3.5" />
+          </Button>
+          <div className="w-px h-5 bg-border mx-0.5" />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn("h-7 w-7 p-0", editor.isActive('bulletList') && "bg-muted")}
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+            title="Bullet List"
+          >
+            <List className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn("h-7 w-7 p-0", editor.isActive('orderedList') && "bg-muted")}
+            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            title="Numbered List"
+          >
+            <ListOrdered className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn("h-7 w-7 p-0", editor.isActive('taskList') && "bg-muted")}
+            onClick={() => editor.chain().focus().toggleTaskList().run()}
+            title="Task List (type [] + space)"
+          >
+            <ListTodo className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+      
+      {/* Editor Content */}
+      <EditorContent editor={editor} />
+      
+      <style>{`
+        .ProseMirror {
+          font-size: 0.875rem;
+          line-height: 1.5;
+        }
+        .ProseMirror p.is-editor-empty:first-child::before {
+          content: attr(data-placeholder);
+          color: hsl(var(--muted-foreground));
+          pointer-events: none;
+          float: left;
+          height: 0;
+        }
+        .ProseMirror h1 { font-size: 1rem; font-weight: 400; margin: 0.5rem 0; }
+        .ProseMirror h2 { font-size: 0.9375rem; font-weight: 400; margin: 0.5rem 0; }
+        .ProseMirror h3 { font-size: 0.875rem; font-weight: 400; margin: 0.5rem 0; }
+        .ProseMirror ul { padding-left: 1.5rem; margin: 0.5rem 0; list-style-type: disc; }
+        .ProseMirror ol { padding-left: 1.5rem; margin: 0.5rem 0; list-style-type: decimal; }
+        .ProseMirror li { margin: 0.25rem 0; display: list-item; }
+        .ProseMirror li p { margin: 0; }
+        .ProseMirror p { margin: 0.25rem 0; }
+        
+        /* Task List Styles */
+        .ProseMirror ul[data-type="taskList"] {
+          list-style: none;
+          padding-left: 0;
+        }
+        .ProseMirror ul[data-type="taskList"] li {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.5rem;
+        }
+        .ProseMirror ul[data-type="taskList"] li > label {
+          flex-shrink: 0;
+          margin-top: 0.25rem;
+        }
+        .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"] {
+          width: 1rem;
+          height: 1rem;
+          cursor: pointer;
+          accent-color: hsl(var(--primary));
+          appearance: none;
+          -webkit-appearance: none;
+          -moz-appearance: none;
+          border: 2px solid hsl(var(--border));
+          border-radius: 0.25rem;
+          background-color: hsl(var(--background));
+          position: relative;
+          transition: all 0.15s ease;
+        }
+        .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"]:hover {
+          border-color: hsl(var(--primary));
+        }
+        .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"]:checked {
+          background-color: hsl(var(--primary));
+          border-color: hsl(var(--primary));
+        }
+        .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"]:checked::after {
+          content: '';
+          position: absolute;
+          left: 0.25rem;
+          top: 0.05rem;
+          width: 0.3rem;
+          height: 0.5rem;
+          border: solid white;
+          border-width: 0 2px 2px 0;
+          transform: rotate(45deg);
+        }
+        .ProseMirror ul[data-type="taskList"] li > div {
+          flex: 1;
+        }
+        .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div {
+          text-decoration: line-through;
+          opacity: 0.6;
+        }
+      `}</style>
+    </div>
+  )
+}
 
 export const LeadDetails: React.FC = () => {
   const { leadId } = useParams<{ leadId: string }>()
@@ -379,15 +666,13 @@ export const LeadDetails: React.FC = () => {
             {/* Row 2: Notes */}
             <div className="mb-6">
               <Label className="text-sm font-medium mb-3 block">Notes</Label>
-              <Textarea
+              <TipTapEditor
                 value={notes}
-                onChange={(e) => {
-                  setNotes(e.target.value)
+                onChange={(value) => {
+                  setNotes(value)
                   triggerAutosave()
                 }}
                 placeholder="Add notes about this lead..."
-                rows={10}
-                className="resize-none"
               />
             </div>
 

@@ -9,3 +9,4 @@ ALTER COLUMN contacts TYPE UUID[] USING
 -- Add comment to clarify the column stores contact IDs
 COMMENT ON COLUMN public.leads.contacts IS 'Array of contact UUIDs referencing the contacts table';
 
+
