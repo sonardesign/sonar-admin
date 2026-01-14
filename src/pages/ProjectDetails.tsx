@@ -242,7 +242,19 @@ export const ProjectDetails: React.FC = () => {
     hours: '1'
   })
   
+  // Color picker modal state
+  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false)
+  const [selectedColor, setSelectedColor] = useState('')
+  const [customColor, setCustomColor] = useState('')
+  
   const { isAdmin } = usePermissions()
+  
+  // Preset colors
+  const presetColors = [
+    '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e',
+    '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1',
+    '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#f43f5e', '#64748b'
+  ]
 
   // Find the project by name from URL
   const project = useMemo(() => {
@@ -458,6 +470,30 @@ export const ProjectDetails: React.FC = () => {
   const handleCancelEditRate = () => {
     setIsEditRateOpen(false)
     setEditingRate(null)
+  }
+
+  // Handle color picker
+  const handleOpenColorPicker = () => {
+    if (!project) return
+    setSelectedColor(project.color || '')
+    setCustomColor(project.color || '')
+    setIsColorPickerOpen(true)
+  }
+
+  const handleSaveColor = async () => {
+    if (!project) return
+    
+    const colorToSave = selectedColor || customColor
+    if (!colorToSave) return
+
+    try {
+      await updateProject(project.id, { color: colorToSave })
+      toast.success('Project color updated')
+      setIsColorPickerOpen(false)
+    } catch (error) {
+      console.error('Error updating project color:', error)
+      toast.error('Failed to update project color')
+    }
   }
 
   // Handle inline editing
@@ -822,8 +858,10 @@ export const ProjectDetails: React.FC = () => {
           </Button>
           
           <div 
-            className="w-8 h-8 rounded-md border-2 border-background shadow-sm flex-shrink-0"
+            className="w-8 h-8 rounded-md border-2 border-background shadow-sm flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
             style={{ backgroundColor: project.color }}
+            onClick={handleOpenColorPicker}
+            title="Click to change color"
           />
           
           {/* Editable Project Code */}
@@ -2026,6 +2064,105 @@ export const ProjectDetails: React.FC = () => {
             <Button onClick={handleCreateTask}>
               <Plus className="h-4 w-4 mr-2" />
               Create Task
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Color Picker Modal */}
+      <Dialog open={isColorPickerOpen} onOpenChange={setIsColorPickerOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change Project Color</DialogTitle>
+            <DialogDescription>
+              Select a preset color or choose a custom color for your project
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Preset Colors */}
+            <div>
+              <Label className="text-sm font-medium mb-3 block">Preset Colors</Label>
+              <div className="grid grid-cols-6 gap-2">
+                {presetColors.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    className={cn(
+                      "w-10 h-10 rounded-md border-2 transition-all hover:scale-110",
+                      selectedColor === color ? "border-primary ring-2 ring-primary ring-offset-2" : "border-background"
+                    )}
+                    style={{ backgroundColor: color }}
+                    onClick={() => {
+                      setSelectedColor(color)
+                      setCustomColor(color)
+                    }}
+                    title={color}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Color Picker */}
+            <div>
+              <Label htmlFor="customColor" className="text-sm font-medium mb-3 block">
+                Custom Color
+              </Label>
+              <div className="flex gap-3 items-center">
+                <input
+                  id="customColor"
+                  type="color"
+                  value={customColor}
+                  onChange={(e) => {
+                    setCustomColor(e.target.value)
+                    setSelectedColor(e.target.value)
+                  }}
+                  className="h-10 w-20 rounded border border-input cursor-pointer"
+                />
+                <Input
+                  type="text"
+                  value={customColor}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setCustomColor(value)
+                    if (/^#[0-9A-F]{6}$/i.test(value)) {
+                      setSelectedColor(value)
+                    }
+                  }}
+                  placeholder="#000000"
+                  className="flex-1 font-mono"
+                  maxLength={7}
+                />
+              </div>
+            </div>
+
+            {/* Preview */}
+            <div>
+              <Label className="text-sm font-medium mb-3 block">Preview</Label>
+              <div className="flex items-center gap-3">
+                <div 
+                  className="w-12 h-12 rounded-md border-2 border-background shadow-sm"
+                  style={{ backgroundColor: selectedColor || customColor }}
+                />
+                <span className="text-sm text-muted-foreground">
+                  {selectedColor || customColor || 'No color selected'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsColorPickerOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSaveColor}
+              disabled={!selectedColor && !customColor}
+            >
+              Save Color
             </Button>
           </DialogFooter>
         </DialogContent>
