@@ -657,133 +657,131 @@ export const Timetable: React.FC = () => {
   return (
     <DndProvider backend={HTML5Backend}>
       <Page loading={loading} loadingText="Loading timetable...">
-        <div className="flex flex-col h-full gap-6">
-          {/* Header with Date Navigation and User Selector */}
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground mb-2">Timetable</h1>
-              <p className="text-muted-foreground">
-                Drag and drop time entries across days and hours
-              </p>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              {/* User Selector for Admins */}
-              {isAdmin && visibleUsers.length > 0 && (
-                <div className="flex items-center space-x-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <SimpleCombobox
-                    options={userOptions}
-                    value={selectedUserId}
-                    onValueChange={setSelectedUserId}
-                    placeholder="Select user..."
-                    searchPlaceholder="Search users..."
-                    emptyText="No users found."
-                    className="w-[250px]"
-                  />
-                </div>
-              )}
-              <div className="flex items-center space-x-2">
-                <Button variant="outline" size="sm" onClick={() => handleCalendarNavigate('PREV')}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="min-w-[200px] font-medium">
-                      {moment(currentDate).startOf('week').format('MMM D')} - {moment(currentDate).endOf('week').format('MMM D, YYYY')}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="center">
-                    <CalendarComponent
-                      mode="single"
-                      selected={currentDate}
-                      onSelect={(date) => {
-                        if (date) {
-                          setCurrentDate(date);
-                        }
-                      }}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                <Button variant="outline" size="sm" onClick={() => handleCalendarNavigate('NEXT')}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              <Button onClick={() => handleCalendarNavigate('TODAY')} variant="outline">
-                Today
-              </Button>
-            </div>
+        {/* Fixed Top Bar */}
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Timetable</h1>
+            <p className="text-muted-foreground">
+              Drag and drop time entries across days and hours
+            </p>
           </div>
-
-          {/* Calendar */}
-          <Card className="flex-1 flex flex-col overflow-hidden relative">
-            {/* Back to Week Button */}
-            {view === Views.DAY && (
-              <div className="absolute top-2 left-2 z-20">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleBackToWeek}
-                  className="shadow-md"
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Week
-                </Button>
+          
+          <div className="flex items-center space-x-4">
+            {/* User Selector for Admins */}
+            {isAdmin && visibleUsers.length > 0 && (
+              <div className="flex items-center space-x-2">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <SimpleCombobox
+                  options={userOptions}
+                  value={selectedUserId}
+                  onValueChange={setSelectedUserId}
+                  placeholder="Select user..."
+                  searchPlaceholder="Search users..."
+                  emptyText="No users found."
+                  className="w-[250px]"
+                />
               </div>
             )}
+            <div className="flex items-center space-x-2">
+              <Button variant="outline" size="sm" onClick={() => handleCalendarNavigate('PREV')}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="min-w-[200px] font-medium">
+                    {moment(currentDate).startOf('week').format('MMM D')} - {moment(currentDate).endOf('week').format('MMM D, YYYY')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="center">
+                  <CalendarComponent
+                    mode="single"
+                    selected={currentDate}
+                    onSelect={(date) => {
+                      if (date) {
+                        setCurrentDate(date);
+                      }
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <Button variant="outline" size="sm" onClick={() => handleCalendarNavigate('NEXT')}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
             
-            <DragAndDropCalendar
-              localizer={localizer}
-              events={events}
-              startAccessor={(event: TimeEntry) => event.start}
-              endAccessor={(event: TimeEntry) => event.end}
-              style={{ height: '100%' }}
-              view={view}
-              onView={(newView) => {
-                if (newView === Views.WEEK || newView === Views.DAY) {
-                  setView(newView);
-                }
-              }}
-              date={currentDate}
-              onNavigate={setCurrentDate}
-              selectable
-              resizable
-              onSelectSlot={handleSelectSlot}
-              onSelectEvent={handleSelectEvent}
-              onEventDrop={handleEventDrop}
-              onEventResize={handleEventResize}
-              eventPropGetter={eventStyleGetter}
-              scrollToTime={new Date(1970, 1, 1, Math.floor(scrollPosition / 60), scrollPosition % 60)}
-              components={{
-                event: CustomEvent,
-                week: {
-                  header: (props: any) => (
-                    <CustomHeader 
-                      label={props.label} 
-                      date={props.date}
-                      onDrillDown={handleDrillDown}
-                      events={events}
-                    />
-                  )
-                }
-              }}
-              step={15}
-              timeslots={4}
-              defaultView={Views.WEEK}
-              views={[Views.WEEK, Views.DAY]}
-              min={new Date(0, 0, 0, 0, 0, 0)} // 12 AM (midnight)
-              max={new Date(0, 0, 0, 23, 59, 59)} // 11:59 PM
-              toolbar={false} // Remove the toolbar completely
-              formats={{
-                timeGutterFormat: 'HH:mm',
-                eventTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) => 
-                  `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`,
-              }}
-            />
-          </Card>
+            <Button onClick={() => handleCalendarNavigate('TODAY')} variant="outline">
+              Today
+            </Button>
+          </div>
         </div>
+
+        {/* Calendar Body - Fixed Height */}
+        <Card className="flex flex-col overflow-hidden relative h-[calc(100vh-150px)]">
+          {/* Back to Week Button */}
+          {view === Views.DAY && (
+            <div className="absolute top-2 left-2 z-20">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBackToWeek}
+                className="shadow-md"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Week
+              </Button>
+            </div>
+          )}
+          
+          <DragAndDropCalendar
+            localizer={localizer}
+            events={events}
+            startAccessor={(event: TimeEntry) => event.start}
+            endAccessor={(event: TimeEntry) => event.end}
+            style={{ height: '100%' }}
+            view={view}
+            onView={(newView) => {
+              if (newView === Views.WEEK || newView === Views.DAY) {
+                setView(newView);
+              }
+            }}
+            date={currentDate}
+            onNavigate={setCurrentDate}
+            selectable
+            resizable
+            onSelectSlot={handleSelectSlot}
+            onSelectEvent={handleSelectEvent}
+            onEventDrop={handleEventDrop}
+            onEventResize={handleEventResize}
+            eventPropGetter={eventStyleGetter}
+            scrollToTime={new Date(1970, 1, 1, Math.floor(scrollPosition / 60), scrollPosition % 60)}
+            components={{
+              event: CustomEvent,
+              week: {
+                header: (props: any) => (
+                  <CustomHeader 
+                    label={props.label} 
+                    date={props.date}
+                    onDrillDown={handleDrillDown}
+                    events={events}
+                  />
+                )
+              }
+            }}
+            step={15}
+            timeslots={4}
+            defaultView={Views.WEEK}
+            views={[Views.WEEK, Views.DAY]}
+            min={new Date(0, 0, 0, 0, 0, 0)} // 12 AM (midnight)
+            max={new Date(0, 0, 0, 23, 59, 59)} // 11:59 PM
+            toolbar={false} // Remove the toolbar completely
+            formats={{
+              timeGutterFormat: 'HH:mm',
+              eventTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) => 
+                `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`,
+            }}
+          />
+        </Card>
 
         {/* Custom Calendar Styles */}
         <style>{`
