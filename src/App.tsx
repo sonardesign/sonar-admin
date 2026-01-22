@@ -21,6 +21,7 @@ import { Funnel } from './pages/Funnel'
 import { LeadDetails } from './pages/LeadDetails'
 import { Contacts } from './pages/Contacts'
 import { CRMReports } from './pages/CRMReports'
+import { GoogleCalendarSync } from './pages/GoogleCalendarSync'
 import { Loader2 } from 'lucide-react'
 import { Toaster } from 'sonner'
 import './styles/globals.css'
@@ -135,6 +136,11 @@ function App() {
                 <Route path="/crm-reports" element={
                   <ProtectedRoute>
                     <CRMReports />
+                  </ProtectedRoute>
+                } />
+                <Route path="/google-calendar-sync" element={
+                  <ProtectedRoute>
+                    <GoogleCalendarSync />
                   </ProtectedRoute>
                 } />
                 </Routes>

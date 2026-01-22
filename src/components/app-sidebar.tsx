@@ -1,4 +1,4 @@
-import { Star, Clock, TrendingUp, BarChart3, FolderOpen, ListTodo, Users, TrendingUp as Funnel, User, Phone, FileText, Settings, ChevronUp, LogOut, Sun, Moon, Monitor } from 'lucide-react'
+import { Star, Clock, TrendingUp, BarChart3, FolderOpen, ListTodo, Users, TrendingUp as Funnel, User, Phone, FileText, Settings, ChevronUp, LogOut, Sun, Moon, Monitor, Calendar } from 'lucide-react'
 import { useLocation, Link } from 'react-router-dom'
 import snrLogo from '../assets/snr-logo.svg'
 import {
@@ -36,6 +36,11 @@ const trackingItems = [
     title: 'Timetable',
     url: '/timetable',
     icon: Clock,
+  },
+  {
+    title: 'Google Calendar',
+    url: '/google-calendar-sync',
+    icon: Calendar,
   },
   {
     title: 'Forecast',

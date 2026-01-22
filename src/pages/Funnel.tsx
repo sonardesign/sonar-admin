@@ -4,12 +4,12 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import { Page } from '../components/Page'
 import { Card, CardContent } from '../components/ui/card'
 import { Button } from '../components/ui/button'
-import { Badge } from '../components/ui/badge'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from '../components/ui/dropdown-menu'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog'
 import { Label } from '../components/ui/label'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
-import { Plus, ExternalLink, DollarSign } from 'lucide-react'
+import { Plus, ExternalLink, DollarSign, ChevronDown } from 'lucide-react'
 import { ScrollArea } from '../components/ui/scroll-area'
 import { supabase } from '../lib/supabase'
 import { toast } from 'sonner'
@@ -28,13 +28,20 @@ const COLUMNS: { id: LeadStatus; title: string; color: string }[] = [
 ]
 
 // Lead Card Component
+interface LeadCardFieldVisibility {
+  industry: boolean
+  ticketSize: boolean
+  website: boolean
+}
+
 interface LeadCardProps {
   lead: Lead
   index: number
+  fieldVisibility: LeadCardFieldVisibility
   onClick?: () => void
 }
 
-const LeadCard: React.FC<LeadCardProps> = ({ lead, index, onClick }) => {
+const LeadCard: React.FC<LeadCardProps> = ({ lead, index, fieldVisibility, onClick }) => {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('hu-HU', {
       style: 'currency',
@@ -42,6 +49,11 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, index, onClick }) => {
       maximumFractionDigits: 0,
     }).format(amount)
   }
+
+  const showIndustry = fieldVisibility.industry && Boolean(lead.industry)
+  const showTicketSize = fieldVisibility.ticketSize && Boolean(lead.ticket_size)
+  const showWebsite = fieldVisibility.website && Boolean(lead.website)
+  const showDetails = showIndustry || showTicketSize || showWebsite
 
   return (
     <div
@@ -52,31 +64,29 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, index, onClick }) => {
       <p className="text-sm font-medium text-foreground line-clamp-2">
         {lead.name}
       </p>
-      
-      {/* Industry */}
-      {lead.industry && (
-        <div className="flex items-center gap-1.5 mt-2">
-          <span className="text-xs text-muted-foreground truncate">{lead.industry}</span>
+
+      {/* Selected fields */}
+      {showDetails && (
+        <div className="mt-2 space-y-1.5 text-xs text-muted-foreground">
+          {showIndustry && (
+            <div className="flex items-center gap-1.5">
+              <span className="truncate">{lead.industry}</span>
+            </div>
+          )}
+          {showWebsite && (
+            <div className="flex items-center gap-1.5">
+              <ExternalLink className="h-3 w-3" />
+              <span className="truncate">{lead.website}</span>
+            </div>
+          )}
+          {showTicketSize && (
+            <div className="flex items-center gap-1.5">
+              <DollarSign className="h-3 w-3" />
+              <span>{formatCurrency(lead.ticket_size as number)}</span>
+            </div>
+          )}
         </div>
       )}
-      
-      {/* Meta info */}
-      <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50 text-xs text-muted-foreground">
-        {/* Ticket Size */}
-        {lead.ticket_size && (
-          <div className="flex items-center gap-1">
-            <DollarSign className="h-3 w-3" />
-            <span>{formatCurrency(lead.ticket_size)}</span>
-          </div>
-        )}
-        
-        {/* Contacts count */}
-        {lead.contacts && lead.contacts.length > 0 && (
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-            {lead.contacts.length} contact{lead.contacts.length > 1 ? 's' : ''}
-          </Badge>
-        )}
-      </div>
     </div>
   )
 }
@@ -85,11 +95,12 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, index, onClick }) => {
 interface KanbanColumnProps {
   column: { id: LeadStatus; title: string; color: string }
   leads: Lead[]
+  cardFieldVisibility: LeadCardFieldVisibility
   onLeadClick: (lead: Lead) => void
   onAddClick: (status: LeadStatus) => void
 }
 
-const KanbanColumn: React.FC<KanbanColumnProps> = ({ column, leads, onLeadClick, onAddClick }) => {
+const KanbanColumn: React.FC<KanbanColumnProps> = ({ column, leads, cardFieldVisibility, onLeadClick, onAddClick }) => {
   // Calculate total ticket value for this column
   const totalValue = leads.reduce((sum, lead) => sum + (lead.ticket_size || 0), 0)
   
@@ -157,6 +168,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ column, leads, onLeadClick,
                         <LeadCard
                           lead={lead}
                           index={index}
+                          fieldVisibility={cardFieldVisibility}
                           onClick={() => onLeadClick(lead)}
                         />
                       </div>
@@ -179,6 +191,11 @@ export const Funnel: React.FC = () => {
   const { user } = useAuth()
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
+  const [cardFieldVisibility, setCardFieldVisibility] = useState<LeadCardFieldVisibility>({
+    industry: true,
+    ticketSize: true,
+    website: false,
+  })
 
   // Create lead modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -368,7 +385,44 @@ export const Funnel: React.FC = () => {
             <div className="text-sm text-muted-foreground">
               {leads.length} total leads
             </div>
-            
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  Card fields
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Show on cards</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem
+                  checked={cardFieldVisibility.industry}
+                  onCheckedChange={(checked) => {
+                    setCardFieldVisibility(prev => ({ ...prev, industry: Boolean(checked) }))
+                  }}
+                >
+                  Industry
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  checked={cardFieldVisibility.ticketSize}
+                  onCheckedChange={(checked) => {
+                    setCardFieldVisibility(prev => ({ ...prev, ticketSize: Boolean(checked) }))
+                  }}
+                >
+                  Ticket size
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  checked={cardFieldVisibility.website}
+                  onCheckedChange={(checked) => {
+                    setCardFieldVisibility(prev => ({ ...prev, website: Boolean(checked) }))
+                  }}
+                >
+                  Website
+                </DropdownMenuCheckboxItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button onClick={() => setIsCreateModalOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Create New Lead
@@ -386,6 +440,7 @@ export const Funnel: React.FC = () => {
                     key={column.id}
                     column={column}
                     leads={leadsByStatus[column.id]}
+                    cardFieldVisibility={cardFieldVisibility}
                     onLeadClick={handleLeadClick}
                     onAddClick={handleAddClick}
                   />
