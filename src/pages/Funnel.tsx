@@ -16,6 +16,7 @@ import { toast } from 'sonner'
 import { cn } from '../lib/utils'
 import { Lead, LeadStatus } from '../types'
 import { useAuth } from '../hooks/useAuth'
+import { useAppStore } from '../store'
 
 // Kanban column definitions
 const COLUMNS: { id: LeadStatus; title: string; color: string }[] = [
@@ -131,9 +132,11 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ column, leads, cardFieldVis
             <Plus className="h-4 w-4" />
           </Button>
         </div>
-        <div className="text-xs font-semibold text-foreground/80">
-          {formatCurrency(totalValue)}
-        </div>
+        {cardFieldVisibility.ticketSize && (
+          <div className="text-xs font-semibold text-foreground/80">
+            {formatCurrency(totalValue)}
+          </div>
+        )}
       </div>
       
       {/* Column Content */}
@@ -189,13 +192,17 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ column, leads, cardFieldVis
 export const Funnel: React.FC = () => {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const showIndustry = useAppStore((state) => state.funnelCardFields.industry)
+  const showTicketSize = useAppStore((state) => state.funnelCardFields.ticketSize)
+  const showWebsite = useAppStore((state) => state.funnelCardFields.website)
+  const setFunnelCardField = useAppStore((state) => state.setFunnelCardField)
+  const cardFieldVisibility = useMemo(() => ({
+    industry: showIndustry,
+    ticketSize: showTicketSize,
+    website: showWebsite,
+  }), [showIndustry, showTicketSize, showWebsite])
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
-  const [cardFieldVisibility, setCardFieldVisibility] = useState<LeadCardFieldVisibility>({
-    industry: true,
-    ticketSize: true,
-    website: false,
-  })
 
   // Create lead modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -399,7 +406,7 @@ export const Funnel: React.FC = () => {
                 <DropdownMenuCheckboxItem
                   checked={cardFieldVisibility.industry}
                   onCheckedChange={(checked) => {
-                    setCardFieldVisibility(prev => ({ ...prev, industry: Boolean(checked) }))
+                    setFunnelCardField('industry', Boolean(checked))
                   }}
                 >
                   Industry
@@ -407,7 +414,7 @@ export const Funnel: React.FC = () => {
                 <DropdownMenuCheckboxItem
                   checked={cardFieldVisibility.ticketSize}
                   onCheckedChange={(checked) => {
-                    setCardFieldVisibility(prev => ({ ...prev, ticketSize: Boolean(checked) }))
+                    setFunnelCardField('ticketSize', Boolean(checked))
                   }}
                 >
                   Ticket size
@@ -415,7 +422,7 @@ export const Funnel: React.FC = () => {
                 <DropdownMenuCheckboxItem
                   checked={cardFieldVisibility.website}
                   onCheckedChange={(checked) => {
-                    setCardFieldVisibility(prev => ({ ...prev, website: Boolean(checked) }))
+                    setFunnelCardField('website', Boolean(checked))
                   }}
                 >
                   Website

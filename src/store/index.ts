@@ -83,12 +83,19 @@ export const useKanbanFilters = () =>
     (state) => state.kanbanFilters,
     shallow
   );
+export const useFunnelCardFields = () =>
+  useAppStore(
+    (state) => state.funnelCardFields,
+    shallow
+  );
 export const useUIActions = () =>
   useAppStore(
     (state) => ({
       setKanbanProjectFilter: state.setKanbanProjectFilter,
       setKanbanUserFilter: state.setKanbanUserFilter,
       resetKanbanFilters: state.resetKanbanFilters,
+      setFunnelCardFields: state.setFunnelCardFields,
+      setFunnelCardField: state.setFunnelCardField,
     }),
     shallow
   );

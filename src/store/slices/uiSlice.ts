@@ -14,11 +14,19 @@ export interface UISlice {
     selectedProjectId: string; // 'all' or project ID
     selectedUserId: string; // 'all' or user ID
   };
+  // Funnel card fields visibility
+  funnelCardFields: {
+    industry: boolean;
+    ticketSize: boolean;
+    website: boolean;
+  };
 
   // Actions
   setKanbanProjectFilter: (projectId: string) => void;
   setKanbanUserFilter: (userId: string) => void;
   resetKanbanFilters: () => void;
+  setFunnelCardFields: (fields: UISlice['funnelCardFields']) => void;
+  setFunnelCardField: (field: keyof UISlice['funnelCardFields'], value: boolean) => void;
 }
 
 /**
@@ -35,6 +43,11 @@ export const createUISlice: StateCreator<
     kanbanFilters: {
       selectedProjectId: 'all',
       selectedUserId: 'all',
+    },
+    funnelCardFields: {
+      industry: true,
+      ticketSize: true,
+      website: false,
     },
 
     // Set project filter
@@ -63,6 +76,23 @@ export const createUISlice: StateCreator<
         kanbanFilters: {
           selectedProjectId: 'all',
           selectedUserId: 'all',
+        },
+      }));
+    },
+
+    // Set all funnel card fields at once
+    setFunnelCardFields: (fields) => {
+      set(() => ({
+        funnelCardFields: { ...fields },
+      }));
+    },
+
+    // Set a single funnel card field
+    setFunnelCardField: (field, value) => {
+      set((state) => ({
+        funnelCardFields: {
+          ...state.funnelCardFields,
+          [field]: value,
         },
       }));
     },
