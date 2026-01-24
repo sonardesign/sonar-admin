@@ -14,12 +14,16 @@ import { Reports } from './pages/Reports'
 import { Summary } from './pages/Summary'
 import { MonthlyDetail } from './pages/MonthlyDetail'
 import { Settings } from './pages/Settings'
+import { AdminSettings } from './pages/AdminSettings'
+import { AdminBuilder } from './pages/AdminBuilder'
+import { SchemaGraphPage } from './pages/SchemaGraphPage'
 import { ForecastPlanning } from './pages/WorkloadPlanning'
 import { Tasks } from './pages/Tasks'
 import { TaskDetail } from './pages/TaskDetail'
 import { Funnel } from './pages/Funnel'
 import { LeadDetails } from './pages/LeadDetails'
 import { Contacts } from './pages/Contacts'
+import { Clients } from './pages/Clients'
 import { CRMReports } from './pages/CRMReports'
 import { GoogleCalendarSync } from './pages/GoogleCalendarSync'
 import { Loader2 } from 'lucide-react'
@@ -100,7 +104,22 @@ function App() {
                 } />
                 <Route path="/settings" element={
                   <ProtectedRoute>
-                    <Settings />
+                    <AdminSettings />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/settings" element={
+                  <ProtectedRoute>
+                    <AdminSettings />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/builder" element={
+                  <ProtectedRoute>
+                    <AdminBuilder />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/schema" element={
+                  <ProtectedRoute>
+                    <SchemaGraphPage />
                   </ProtectedRoute>
                 } />
                 <Route path="/workload" element={
@@ -131,6 +150,11 @@ function App() {
                 <Route path="/contacts" element={
                   <ProtectedRoute>
                     <Contacts />
+                  </ProtectedRoute>
+                } />
+                <Route path="/clients" element={
+                  <ProtectedRoute>
+                    <Clients />
                   </ProtectedRoute>
                 } />
                 <Route path="/crm-reports" element={

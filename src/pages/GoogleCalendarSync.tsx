@@ -22,7 +22,7 @@ import moment from 'moment';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 
-export const GoogleCalendarSync: React.FC = () => {
+export const GoogleCalendarSettingsPanel: React.FC = () => {
   const { projects, getActiveProjects } = useSupabaseAppState();
   const { isAdmin } = usePermissions();
   const activeProjects = getActiveProjects();
@@ -335,8 +335,7 @@ export const GoogleCalendarSync: React.FC = () => {
   };
 
   return (
-    <Page>
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2">
@@ -903,7 +902,14 @@ export const GoogleCalendarSync: React.FC = () => {
             </p>
           </CardContent>
         </Card>
-      </div>
+    </div>
+  );
+};
+
+export const GoogleCalendarSync: React.FC = () => {
+  return (
+    <Page>
+      <GoogleCalendarSettingsPanel />
     </Page>
   );
 };

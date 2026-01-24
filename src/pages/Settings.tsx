@@ -15,7 +15,7 @@ import { supabase } from '../lib/supabase'
 import { notifications } from '../lib/notifications'
 import { ROLE_BADGES } from '../lib/permissions'
 
-export const Settings: React.FC = () => {
+export const UsersSettingsPanel: React.FC = () => {
   const { isAdmin } = usePermissions()
   const { users, refresh } = useSupabaseAppState()
   
@@ -32,13 +32,11 @@ export const Settings: React.FC = () => {
   // Redirect non-admins
   if (!isAdmin) {
     return (
-      <Page title="Settings" subtitle="Access Denied">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-muted-foreground">You don't have permission to access this page.</p>
-          </CardContent>
-        </Card>
-      </Page>
+      <Card>
+        <CardContent className="pt-6">
+          <p className="text-muted-foreground">You don't have permission to access this page.</p>
+        </CardContent>
+      </Card>
     )
   }
 
@@ -225,7 +223,7 @@ export const Settings: React.FC = () => {
   }
 
   return (
-    <Page title="Settings" subtitle="Manage system settings and users">
+    <>
       <div className="space-y-6">
         {/* Users Section */}
         <Card>
@@ -416,6 +414,14 @@ export const Settings: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </>
+  )
+}
+
+export const Settings: React.FC = () => {
+  return (
+    <Page title="Settings" subtitle="Manage system settings and users">
+      <UsersSettingsPanel />
     </Page>
   )
 }

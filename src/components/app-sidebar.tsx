@@ -1,4 +1,4 @@
-import { Star, Clock, TrendingUp, BarChart3, FolderOpen, ListTodo, Users, TrendingUp as Funnel, User, Phone, FileText, Settings, ChevronUp, LogOut, Sun, Moon, Monitor, Calendar } from 'lucide-react'
+import { Star, Clock, TrendingUp, BarChart3, FolderOpen, ListTodo, Users, TrendingUp as Funnel, User, Phone, FileText, Settings, ChevronUp, LogOut, Sun, Moon, Monitor, Database } from 'lucide-react'
 import { useLocation, Link } from 'react-router-dom'
 import snrLogo from '../assets/snr-logo.svg'
 import {
@@ -36,11 +36,6 @@ const trackingItems = [
     title: 'Timetable',
     url: '/timetable',
     icon: Clock,
-  },
-  {
-    title: 'Google Calendar',
-    url: '/google-calendar-sync',
-    icon: Calendar,
   },
   {
     title: 'Forecast',
@@ -87,6 +82,24 @@ const crmItems = [
     title: 'Reports',
     url: '/crm-reports',
     icon: FileText,
+  },
+]
+
+const adminItems = [
+  {
+    title: 'Settings',
+    url: '/settings',
+    icon: Settings,
+  },
+  {
+    title: 'Builder',
+    url: '/admin/builder',
+    icon: FileText,
+  },
+  {
+    title: 'DB Schema',
+    url: '/admin/schema',
+    icon: Database,
   },
 ]
 
@@ -205,21 +218,27 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Settings */}
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive('/settings')}>
-                  <Link to="/settings">
-                    <Settings />
-                    <span>Settings</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Admin Group */}
+        {userRole === 'admin' && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Admin</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={isActive(item.url)}>
+                      <Link to={item.url}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
       </SidebarContent>
       
       {/* User Account Footer */}
