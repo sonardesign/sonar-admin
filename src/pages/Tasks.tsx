@@ -44,7 +44,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ entry, index, project, user, onClic
   return (
     <div
       onClick={onClick}
-      className="bg-card border border-border rounded-lg p-3 cursor-pointer shadow-sm hover:shadow-md transition-shadow"
+      className="bg-card border border-border rounded-lg p-3 cursor-pointer shadow-sm hover:shadow-md hover:border-primary transition-shadow transition-colors"
     >
       {/* Task Number */}
       {entry.task_number && (
