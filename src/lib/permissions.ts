@@ -68,7 +68,7 @@ export const getAllowedRoutes = (role: UserRole): string[] => {
     case 'manager':
       return ['/', '/time-tracking', '/timetable', '/google-calendar-sync', '/tasks', '/funnel', '/contacts', '/crm-reports', '/projects', '/clients', '/workload', '/reports', '/summary']
     case 'member':
-      return ['/time-tracking', '/timetable', '/google-calendar-sync', '/tasks', '/funnel', '/contacts', '/crm-reports', '/projects', '/clients']
+      return ['/time-tracking', '/timetable', '/google-calendar-sync', '/tasks', '/projects', '/clients']
     default:
       return ['/time-tracking']
   }
