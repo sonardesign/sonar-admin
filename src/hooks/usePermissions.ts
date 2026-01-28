@@ -94,7 +94,7 @@ export const usePermissions = (): UsePermissionsReturn => {
           canEditOthersTimeEntries: true,
           allowedRoutes: [
             '/',
-            '/time-tracking',
+            '/dashboard',
             '/timetable',
             '/projects',
             '/workload',
@@ -118,7 +118,7 @@ export const usePermissions = (): UsePermissionsReturn => {
           canEditOthersTimeEntries: false, // Only with specific permissions
           allowedRoutes: [
             '/',
-            '/time-tracking',
+            '/dashboard',
             '/timetable',
             '/projects',
             '/workload',
@@ -141,7 +141,7 @@ export const usePermissions = (): UsePermissionsReturn => {
           canViewOthersTimeEntries: false,
           canEditOthersTimeEntries: false,
           allowedRoutes: [
-            '/time-tracking',
+            '/',
             '/timetable',
             '/projects' // Can view list and create, but not open details
           ]

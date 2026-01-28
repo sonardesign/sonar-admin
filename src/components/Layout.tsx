@@ -40,6 +40,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { useTheme } from '../hooks/useTheme';
 import { useKeyboardShortcut, createShortcut } from '../hooks/useKeyboardShortcut';
 import { useLastPage } from '../hooks/usePersistentState';
+import { useAppStore } from '../store';
 import { notifications } from '../lib/notifications';
 import { isRouteAllowed } from '../lib/permissions';
 import { supabase } from '../lib/supabase';
@@ -69,11 +70,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { userRole } = usePermissions();
   const { theme, setTheme, isDark } = useTheme();
   const { saveLastPage } = useLastPage();
+  const setLastVisitedPath = useAppStore((state) => state.setLastVisitedPath);
   
   // Save current page on location change
   useEffect(() => {
     saveLastPage(location.pathname);
-  }, [location.pathname, saveLastPage]);
+    setLastVisitedPath(location.pathname);
+  }, [location.pathname, saveLastPage, setLastVisitedPath]);
   
   // Settings modal state
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -184,8 +187,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   // Global keyboard shortcuts
   useKeyboardShortcut([
     createShortcut(
-      'c',
-      { ctrl: true, cmd: true },
+      'n',
+      { ctrl: true, cmd: true, alt: true },
       () => {
         openCreateTaskModal()
       },

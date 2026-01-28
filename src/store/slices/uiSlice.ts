@@ -20,6 +20,8 @@ export interface UISlice {
     ticketSize: boolean;
     website: boolean;
   };
+  // Last visited path
+  lastVisitedPath: string | null;
 
   // Actions
   setKanbanProjectFilter: (projectId: string) => void;
@@ -27,6 +29,7 @@ export interface UISlice {
   resetKanbanFilters: () => void;
   setFunnelCardFields: (fields: UISlice['funnelCardFields']) => void;
   setFunnelCardField: (field: keyof UISlice['funnelCardFields'], value: boolean) => void;
+  setLastVisitedPath: (path: string) => void;
 }
 
 /**
@@ -49,6 +52,7 @@ export const createUISlice: StateCreator<
       ticketSize: true,
       website: false,
     },
+    lastVisitedPath: null,
 
     // Set project filter
     setKanbanProjectFilter: (projectId) => {
@@ -94,6 +98,12 @@ export const createUISlice: StateCreator<
           ...state.funnelCardFields,
           [field]: value,
         },
+      }));
+    },
+
+    setLastVisitedPath: (path) => {
+      set(() => ({
+        lastVisitedPath: path,
       }));
     },
   };

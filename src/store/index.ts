@@ -96,6 +96,7 @@ export const useUIActions = () =>
       resetKanbanFilters: state.resetKanbanFilters,
       setFunnelCardFields: state.setFunnelCardFields,
       setFunnelCardField: state.setFunnelCardField,
+      setLastVisitedPath: state.setLastVisitedPath,
     }),
     shallow
   );

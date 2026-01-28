@@ -109,11 +109,24 @@ export const UsersSettingsPanel: React.FC = () => {
     }
 
     try {
-      // Delete user from auth
-      const { error: authError } = await supabase.auth.admin.deleteUser(userId)
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !sessionData.session?.access_token) {
+        notifications.createError('Delete User', 'Authentication required')
+        return
+      }
 
-      if (authError) {
-        notifications.createError('Delete User', authError.message)
+      const response = await fetch('/api/admin/delete-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+        body: JSON.stringify({ userId }),
+      })
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}))
+        notifications.createError('Delete User', body.error || 'Failed to delete user')
         return
       }
 

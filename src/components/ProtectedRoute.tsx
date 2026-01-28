@@ -20,15 +20,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
   // Check if the current route is allowed for the user's role
   if (!isRouteAllowed(currentPath, userRole)) {
-    // Redirect based on role
-    if (userRole === 'member') {
-      // Members should go to time tracking
-      return <Navigate to="/time-tracking" replace />
-    } else if (userRole === 'manager') {
-      // Managers should go to dashboard
-      return <Navigate to="/" replace />
-    }
-    // Default redirect to home
+    // Redirect to home (timetable)
     return <Navigate to="/" replace />
   }
 

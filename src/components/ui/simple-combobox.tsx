@@ -75,6 +75,14 @@ export function SimpleCombobox({
     setHighlightedIndex(-1)
   }
 
+  const handleListWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    const target = event.currentTarget
+    if (target.scrollHeight <= target.clientHeight) return
+    event.preventDefault()
+    event.stopPropagation()
+    target.scrollTop += event.deltaY
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!open) return
 
@@ -155,7 +163,7 @@ export function SimpleCombobox({
               autoFocus={autoFocus}
             />
           </div>
-          <div className="max-h-64 overflow-y-auto">
+          <div className="max-h-64 overflow-y-auto overscroll-contain" onWheel={handleListWheel}>
             {filteredOptions.length === 0 ? (
               <div className="py-6 text-center text-sm text-muted-foreground">
                 {emptyText}

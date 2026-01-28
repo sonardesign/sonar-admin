@@ -64,13 +64,13 @@ export const canManageUsers = (role: UserRole): boolean => {
 export const getAllowedRoutes = (role: UserRole): string[] => {
   switch (role) {
     case 'admin':
-      return ['/', '/time-tracking', '/timetable', '/google-calendar-sync', '/tasks', '/funnel', '/contacts', '/crm-reports', '/projects', '/clients', '/workload', '/reports', '/summary', '/settings', '/admin']
+      return ['/', '/dashboard', '/timetable', '/google-calendar-sync', '/tasks', '/funnel', '/contacts', '/crm-reports', '/projects', '/clients', '/workload', '/reports', '/summary', '/settings', '/admin']
     case 'manager':
-      return ['/', '/time-tracking', '/timetable', '/google-calendar-sync', '/tasks', '/funnel', '/contacts', '/crm-reports', '/projects', '/clients', '/workload', '/reports', '/summary']
+      return ['/', '/dashboard', '/timetable', '/google-calendar-sync', '/tasks', '/funnel', '/contacts', '/crm-reports', '/projects', '/clients', '/workload', '/reports', '/summary']
     case 'member':
-      return ['/time-tracking', '/timetable', '/google-calendar-sync', '/tasks', '/projects', '/clients']
+      return ['/', '/timetable', '/google-calendar-sync', '/tasks', '/projects', '/clients']
     default:
-      return ['/time-tracking']
+      return ['/']
   }
 }
 

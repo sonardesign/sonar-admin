@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { useEffect } from 'react'
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import { Layout } from './components/Layout'
 import { ProtectedRoute } from './components/ProtectedRoute'
@@ -6,7 +7,6 @@ import { AuthPage } from './components/auth/AuthPage'
 import { SidebarProvider, SidebarInset } from './components/ui/sidebar'
 import { AppSidebar } from './components/app-sidebar'
 import { Dashboard } from './pages/Dashboard'
-import { TimeTracking } from './pages/TimeTracking'
 import { Timetable } from './pages/Timetable'
 import { Projects } from './pages/Projects'
 import { ProjectDetails } from './pages/ProjectDetails'
@@ -29,6 +29,26 @@ import { GoogleCalendarSync } from './pages/GoogleCalendarSync'
 import { Loader2 } from 'lucide-react'
 import { Toaster } from 'sonner'
 import './styles/globals.css'
+import { useLastPage } from './hooks/usePersistentState'
+import { isRouteAllowed } from './lib/permissions'
+import { usePermissions } from './hooks/usePermissions'
+
+const LastPageRedirect: React.FC = () => {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { getLastPage } = useLastPage()
+  const { userRole } = usePermissions()
+
+  useEffect(() => {
+    if (location.pathname !== '/') return
+    const lastPage = getLastPage()
+    if (!lastPage || lastPage === '/' || lastPage === location.pathname) return
+    if (!isRouteAllowed(lastPage, userRole)) return
+    navigate(lastPage, { replace: true })
+  }, [location.pathname, getLastPage, navigate, userRole])
+
+  return null
+}
 
 function App() {
   const { user, loading, initialized } = useAuth()
@@ -61,15 +81,16 @@ function App() {
           <SidebarInset className="flex-1 overflow-hidden">
             <div className="h-full overflow-auto">
               <Layout>
+                <LastPageRedirect />
                 <Routes>
                 <Route path="/" element={
                   <ProtectedRoute>
-                    <Dashboard />
+                    <Timetable />
                   </ProtectedRoute>
                 } />
-                <Route path="/time-tracking" element={
+                <Route path="/dashboard" element={
                   <ProtectedRoute>
-                    <TimeTracking />
+                    <Dashboard />
                   </ProtectedRoute>
                 } />
                 <Route path="/timetable" element={
