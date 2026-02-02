@@ -13,6 +13,8 @@ import { PDFExportService } from '../services/pdfExportService'
 import { CSVExportService } from '../services/csvExportService'
 import { cn } from '../lib/utils'
 import { Page } from '../components/Page'
+import { useAuth } from '../hooks/useAuth'
+import { usePermissions } from '../hooks/usePermissions'
 
 interface DateRange {
   from: Date
@@ -26,6 +28,9 @@ interface DatePreset {
 
 const getDatePresets = (): DatePreset[] => {
   const today = new Date()
+  const lastWeekStart = startOfWeek(new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000))
+  const lastWeekEnd = endOfWeek(new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000))
+  const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
   
   return [
     {
@@ -43,10 +48,24 @@ const getDatePresets = (): DatePreset[] => {
       }
     },
     {
+      label: 'Last Week',
+      range: {
+        from: lastWeekStart,
+        to: lastWeekEnd
+      }
+    },
+    {
       label: 'This Month',
       range: {
         from: startOfMonth(today),
         to: endOfMonth(today)
+      }
+    },
+    {
+      label: 'Last Month',
+      range: {
+        from: startOfMonth(lastMonth),
+        to: endOfMonth(lastMonth)
       }
     },
     {
@@ -60,7 +79,36 @@ const getDatePresets = (): DatePreset[] => {
 }
 
 export const Reports: React.FC = () => {
-  const { projects, timeEntries, clients, users, loading, error } = useSupabaseAppState()
+  const { user } = useAuth()
+  const { userRole, isMember } = usePermissions()
+  const { projects: allProjects, timeEntries: allTimeEntries, clients: allClients, users, loading, error } = useSupabaseAppState()
+  
+  // Filter data based on member permissions
+  const timeEntries = useMemo(() => {
+    if (isMember) {
+      // Members only see their own time entries
+      return allTimeEntries.filter(entry => entry.user_id === user?.id)
+    }
+    return allTimeEntries
+  }, [allTimeEntries, isMember, user?.id])
+
+  const projects = useMemo(() => {
+    if (isMember) {
+      // Members only see projects they have entries in
+      const projectIds = new Set(timeEntries.map(entry => entry.projectId || entry.project_id))
+      return allProjects.filter(project => projectIds.has(project.id))
+    }
+    return allProjects
+  }, [allProjects, isMember, timeEntries])
+
+  const clients = useMemo(() => {
+    if (isMember) {
+      // Members only see clients whose projects they have entries in
+      const clientIds = new Set(projects.map(project => project.client_id || project.clientId).filter(Boolean))
+      return allClients.filter(client => clientIds.has(client.id))
+    }
+    return allClients
+  }, [allClients, isMember, projects])
   
   console.log('📊 Reports page data:', { 
     projects: projects.length, 
@@ -68,7 +116,9 @@ export const Reports: React.FC = () => {
     clients: clients.length,
     users: users.length,
     loading,
-    error 
+    error,
+    userRole,
+    isMember
   });
   const [selectedClient, setSelectedClient] = useState<string>('all')
   const [selectedProject, setSelectedProject] = useState<string>('all')
@@ -265,24 +315,26 @@ export const Reports: React.FC = () => {
                 </Select>
               </div>
 
-              {/* Colleague Dropdown */}
-              <div className="flex flex-col space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Colleague</label>
-                <Select value={selectedColleague} onValueChange={setSelectedColleague}>
-                  <SelectTrigger className="w-[180px]">
-                    <User className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Select colleague" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All colleagues</SelectItem>
-                    {users.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Colleague Dropdown - Only for admins and managers */}
+              {!isMember && (
+                <div className="flex flex-col space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Colleague</label>
+                  <Select value={selectedColleague} onValueChange={setSelectedColleague}>
+                    <SelectTrigger className="w-[180px]">
+                      <User className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Select colleague" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All colleagues</SelectItem>
+                      {users.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-3">
@@ -322,8 +374,8 @@ export const Reports: React.FC = () => {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="end">
-                  <div className="flex">
-                    <div className="flex flex-col p-3 border-r">
+                  <div className="flex flex-col">
+                    <div className="flex flex-col p-3 border-b">
                       <div className="text-sm font-medium mb-2">Quick Select</div>
                       <div className="space-y-1">
                         {datePresets.map((preset) => (
@@ -415,6 +467,12 @@ export const Reports: React.FC = () => {
                       borderRadius: '0.5rem',
                       color: 'hsl(var(--foreground))'
                     }}
+                    labelStyle={{
+                      color: 'hsl(var(--foreground))'
+                    }}
+                    itemStyle={{
+                      color: 'hsl(var(--foreground))'
+                    }}
                   />
                 </PieChart>
                 <div className="mt-4 grid grid-cols-2 gap-2">
@@ -465,6 +523,12 @@ export const Reports: React.FC = () => {
                     backgroundColor: 'hsl(var(--card))', 
                     border: '1px solid hsl(var(--border))',
                     borderRadius: '0.5rem',
+                    color: 'hsl(var(--foreground))'
+                  }}
+                  labelStyle={{
+                    color: 'hsl(var(--foreground))'
+                  }}
+                  itemStyle={{
                     color: 'hsl(var(--foreground))'
                   }}
                 />

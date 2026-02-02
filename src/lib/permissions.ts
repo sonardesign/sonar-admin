@@ -27,7 +27,7 @@ export const canViewDashboard = (role: UserRole): boolean => {
  * Check if a user role can view summary/reports
  */
 export const canViewReports = (role: UserRole): boolean => {
-  return role === 'admin' || role === 'manager'
+  return true // All users can view reports (with role-based filtering)
 }
 
 /**
@@ -68,7 +68,7 @@ export const getAllowedRoutes = (role: UserRole): string[] => {
     case 'manager':
       return ['/', '/dashboard', '/timetable', '/google-calendar-sync', '/tasks', '/funnel', '/contacts', '/crm-reports', '/projects', '/clients', '/workload', '/reports', '/summary']
     case 'member':
-      return ['/', '/timetable', '/google-calendar-sync', '/tasks', '/projects', '/clients']
+      return ['/', '/timetable', '/google-calendar-sync', '/tasks', '/projects', '/clients', '/reports']
     default:
       return ['/']
   }

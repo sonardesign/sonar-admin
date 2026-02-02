@@ -143,7 +143,8 @@ export const usePermissions = (): UsePermissionsReturn => {
           allowedRoutes: [
             '/',
             '/timetable',
-            '/projects' // Can view list and create, but not open details
+            '/projects', // Can view list and create, but not open details
+            '/reports' // Can view their own reports only
           ]
         }
     }
