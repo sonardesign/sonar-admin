@@ -8,6 +8,7 @@ import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { Button } from './ui/button'
 import { SimpleCombobox, ComboboxOption } from './ui/simple-combobox'
+import { Checkbox } from './ui/checkbox'
 
 interface TimeEntryModalProps {
   isOpen: boolean
@@ -22,6 +23,7 @@ interface TimeEntryModalProps {
   projectId: string
   description: string
   entryType: 'planned' | 'reported'
+  isBillable: boolean
   duration: string // HH:MM format
   startTimeString: string // HH:mm format
   endTimeString: string // HH:mm format
@@ -33,6 +35,7 @@ interface TimeEntryModalProps {
   onProjectChange: (value: string) => void
   onDescriptionChange: (value: string) => void
   onEntryTypeChange: (value: 'planned' | 'reported') => void
+  onBillableChange: (value: boolean) => void
   onDurationChange: (value: string) => void
   onStartTimeChange: (value: string) => void
   onEndTimeChange: (value: string) => void
@@ -52,6 +55,7 @@ export const TimeEntryModal: React.FC<TimeEntryModalProps> = ({
   projectId,
   description,
   entryType,
+  isBillable,
   duration,
   startTimeString,
   endTimeString,
@@ -59,6 +63,7 @@ export const TimeEntryModal: React.FC<TimeEntryModalProps> = ({
   onProjectChange,
   onDescriptionChange,
   onEntryTypeChange,
+  onBillableChange,
   onDurationChange,
   onStartTimeChange,
   onEndTimeChange,
@@ -86,10 +91,25 @@ export const TimeEntryModal: React.FC<TimeEntryModalProps> = ({
         </DialogHeader>
 
         <Tabs value={entryType} onValueChange={(value) => onEntryTypeChange(value as 'planned' | 'reported')} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="reported">Reported</TabsTrigger>
-            <TabsTrigger value="planned">Planned</TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between mb-4">
+            <TabsList className="grid grid-cols-2">
+              <TabsTrigger value="reported">Reported</TabsTrigger>
+              <TabsTrigger value="planned">Planned</TabsTrigger>
+            </TabsList>
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="non-billable" 
+                checked={!isBillable}
+                onCheckedChange={(checked) => onBillableChange(!checked)}
+              />
+              <Label 
+                htmlFor="non-billable" 
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+              >
+                Non-billable
+              </Label>
+            </div>
+          </div>
           
           {/* Reported Tab */}
           <TabsContent value="reported" className="space-y-4">

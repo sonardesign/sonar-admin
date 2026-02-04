@@ -15,6 +15,7 @@ import { cn } from '../lib/utils'
 import { Page } from '../components/Page'
 import { useAuth } from '../hooks/useAuth'
 import { usePermissions } from '../hooks/usePermissions'
+import { PrintHeader } from '../components/PrintHeader'
 
 interface DateRange {
   from: Date
@@ -258,8 +259,13 @@ export const Reports: React.FC = () => {
 
   return (
     <Page loading={loading} loadingText="Loading reports...">
+      <PrintHeader 
+        title="Time Tracking Report" 
+        subtitle={formatDateRange(dateRange)}
+      />
+
       <div className="space-y-6">
-      <div>
+      <div className="no-print">
         <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
         <p className="text-muted-foreground">
           Generate and export detailed time tracking reports
@@ -267,7 +273,7 @@ export const Reports: React.FC = () => {
       </div>
 
       {/* Top Bar with Filters and Actions */}
-      <Card>
+      <Card className="no-print">
         <CardContent className="p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-4">

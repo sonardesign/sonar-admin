@@ -54,6 +54,7 @@ interface TimeEntry extends RBCEvent {
     description?: string;
     duration_minutes: number;
     durationLabel: string;
+    isBillable: boolean;
   };
 }
 
@@ -227,6 +228,7 @@ export const Timetable: React.FC = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [taskDescription, setTaskDescription] = useState('');
   const [entryType, setEntryType] = useState<'planned' | 'reported'>('reported');
+  const [isBillable, setIsBillable] = useState<boolean>(true);
   const [startTimeString, setStartTimeString] = useState('');
   const [endTimeString, setEndTimeString] = useState('');
   const [durationString, setDurationString] = useState('');
@@ -346,7 +348,8 @@ export const Timetable: React.FC = () => {
           projectColor: project?.color || '#3b82f6',
           description: entry.description || entry.task,
           duration_minutes: durationMinutes,
-          durationLabel: durationLabel
+          durationLabel: durationLabel,
+          isBillable: entry.is_billable !== undefined ? entry.is_billable : true
         }
       };
     });
@@ -450,6 +453,7 @@ export const Timetable: React.FC = () => {
     setSelectedProjectId('');
     setTaskDescription('');
     setEntryType(isFuture ? 'planned' : 'reported');
+    setIsBillable(true);
     
     // Set time strings for the modal
     const startTimeStr = moment(start).format('HH:mm');
@@ -474,6 +478,7 @@ export const Timetable: React.FC = () => {
     setEditingTimeEntry(event);
     setSelectedProjectId(event.resource?.projectId || '');
     setTaskDescription(event.resource?.description || '');
+    setIsBillable(event.resource?.isBillable !== undefined ? event.resource.isBillable : true);
     const startTimeStr = moment(event.start).format('HH:mm');
     const endTimeStr = moment(event.end).format('HH:mm');
     setStartTimeString(startTimeStr);
@@ -565,7 +570,7 @@ export const Timetable: React.FC = () => {
           end_time: newEnd.toISOString(),
           duration_minutes: durationMinutes,
           description: taskDescription || undefined,
-          is_billable: true,
+          is_billable: isBillable,
           entry_type: entryType,
         });
 
@@ -578,6 +583,7 @@ export const Timetable: React.FC = () => {
           project_id: selectedProjectId,
           description: taskDescription || undefined,
           entry_type: entryType,
+          is_billable: isBillable,
         start_time: newStart.toISOString(),
         end_time: newEnd.toISOString(),
         duration_minutes: durationMinutes,
@@ -592,6 +598,7 @@ export const Timetable: React.FC = () => {
       setSelectedProjectId('');
       setTaskDescription('');
       setEntryType('reported');
+      setIsBillable(true);
       setStartTimeString('');
       setEndTimeString('');
       setDurationString('');
@@ -619,6 +626,7 @@ export const Timetable: React.FC = () => {
       setSelectedProjectId('');
       setTaskDescription('');
       setEntryType('reported');
+      setIsBillable(true);
       setStartTimeString('');
       setEndTimeString('');
       setDurationString('');
@@ -823,6 +831,7 @@ export const Timetable: React.FC = () => {
             setSelectedProjectId('');
             setTaskDescription('');
             setEntryType('reported');
+            setIsBillable(true);
             setStartTimeString('');
             setEndTimeString('');
             setDurationString('');
@@ -834,6 +843,7 @@ export const Timetable: React.FC = () => {
           projectId={selectedProjectId}
           description={taskDescription}
           entryType={entryType}
+          isBillable={isBillable}
           duration={durationString}
           startTimeString={startTimeString}
           endTimeString={endTimeString}
@@ -841,6 +851,7 @@ export const Timetable: React.FC = () => {
           onProjectChange={setSelectedProjectId}
           onDescriptionChange={setTaskDescription}
           onEntryTypeChange={setEntryType}
+          onBillableChange={setIsBillable}
           onDurationChange={handleDurationChange}
           onStartTimeChange={handleStartTimeChange}
           onEndTimeChange={handleEndTimeChange}
